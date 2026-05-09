@@ -27,17 +27,26 @@ export type DetectionResult = {
   quad: Quad;
   confidence: number;
   method: "opencv" | "heuristic" | "fallback";
-  strategy?: "strict" | "tolerant" | "dark" | "fallback";
+  strategy?: "white-region" | "inner-photo" | "edge-line" | "fallback";
   message?: string;
   debug?: {
     strategy?: string;
     candidateCount?: number;
     bestScore?: number;
+    whiteRegionScore?: number;
+    innerPhotoScore?: number;
+    edgeLineScore?: number;
     areaRatio?: number;
     ratio?: number;
     edgeTouches?: number;
     reason?: string;
     ringScore?: number;
+    innerPhotoBounds?: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    };
     maskPreviewUrl?: string;
   };
 };

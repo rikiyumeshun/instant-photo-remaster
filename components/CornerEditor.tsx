@@ -227,6 +227,12 @@ export function CornerEditor({
                 <dd>{typeof confidence === "number" ? confidence.toFixed(3) : "-"}</dd>
                 <dt className="font-bold">best score</dt>
                 <dd>{formatDebug(debug?.bestScore)}</dd>
+                <dt className="font-bold">white-region</dt>
+                <dd>{formatDebug(debug?.whiteRegionScore)}</dd>
+                <dt className="font-bold">inner-photo</dt>
+                <dd>{formatDebug(debug?.innerPhotoScore)}</dd>
+                <dt className="font-bold">edge-line</dt>
+                <dd>{formatDebug(debug?.edgeLineScore)}</dd>
                 <dt className="font-bold">candidates</dt>
                 <dd>{debug?.candidateCount ?? "-"}</dd>
                 <dt className="font-bold">area ratio</dt>
@@ -239,6 +245,12 @@ export function CornerEditor({
                 <dd>{formatDebug(debug?.ringScore)}</dd>
                 <dt className="font-bold">reason</dt>
                 <dd>{debug?.reason ?? "-"}</dd>
+                <dt className="font-bold">inner rect</dt>
+                <dd>
+                  {debug?.innerPhotoBounds
+                    ? `${debug.innerPhotoBounds.x},${debug.innerPhotoBounds.y} ${debug.innerPhotoBounds.width}x${debug.innerPhotoBounds.height}`
+                    : "-"}
+                </dd>
               </dl>
               {debug?.maskPreviewUrl ? (
                 <div className="mt-3">
