@@ -156,7 +156,7 @@ function scoreCandidate(bounds: Bounds, data: Uint8ClampedArray, width: number, 
   const borderContrast = measureBorderContrast(bounds, data, width, height);
   const contrastScore = clamp(borderContrast / 42, 0, 1);
 
-  const quad = estimateQuadFromBounds(bounds, data, width, height);
+  const quad = estimateQuadFromBounds(bounds, data, width);
   const shapeScore = isSaneQuad(quad) ? 0.16 : -0.35;
   const score =
     areaRatio * 0.55 +
@@ -171,7 +171,7 @@ function scoreCandidate(bounds: Bounds, data: Uint8ClampedArray, width: number, 
   return score > 0.18 ? { ...bounds, score, quad, touchesEdge } : null;
 }
 
-function estimateQuadFromBounds(bounds: Bounds, data: Uint8ClampedArray, width: number, height: number): Quad {
+function estimateQuadFromBounds(bounds: Bounds, data: Uint8ClampedArray, width: number): Quad {
   const points: Point[] = [];
   const step = Math.max(1, Math.floor(Math.max(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY) / 180));
 
