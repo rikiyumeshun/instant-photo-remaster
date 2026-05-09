@@ -33,7 +33,9 @@ export default function Home() {
           disabled={state.isProcessing}
           confidence={state.detection?.confidence}
           method={state.detection?.method}
+          strategy={state.detection?.strategy}
           message={state.detection?.message}
+          debug={state.detection?.debug}
           imageWidth={state.sourceSize?.width}
           imageHeight={state.sourceSize?.height}
         />

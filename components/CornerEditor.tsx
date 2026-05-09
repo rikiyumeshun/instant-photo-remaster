@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Point, Quad } from "@/lib/image/types";
+import type { DetectionResult, Point, Quad } from "@/lib/image/types";
 
 type Props = {
   imageUrl: string | null;
@@ -11,7 +11,9 @@ type Props = {
   disabled?: boolean;
   confidence?: number;
   method?: string;
+  strategy?: string;
   message?: string;
+  debug?: DetectionResult["debug"];
   imageWidth?: number;
   imageHeight?: number;
 };
@@ -26,13 +28,16 @@ export function CornerEditor({
   disabled,
   confidence,
   method,
+  strategy,
   message,
+  debug,
   imageWidth = 1,
   imageHeight = 1,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [active, setActive] = useState(0);
   const [isZoomed, setIsZoomed] = useState(false);
+  const [showDebug, setShowDebug] = useState(false);
 
   useEffect(() => {
     if (!quad) setActive(0);
@@ -73,7 +78,7 @@ export function CornerEditor({
             <p className="mt-1 text-sm leading-6 text-zinc-600">白枠の外側四隅に丸を合わせてください。</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {method ? <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-bold text-zinc-700">{method}</span> : null}
+            {method ? <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-bold text-zinc-700">{strategy ? `${method}/${strategy}` : method}</span> : null}
             {typeof confidence === "number" ? (
               <span className={`rounded-full px-3 py-1 text-xs font-bold ${confidenceIsLow ? "bg-blush text-zinc-800" : "bg-mist text-zinc-700"}`}>
                 検出 {Math.round(confidence * 100)}%
@@ -84,7 +89,8 @@ export function CornerEditor({
 
         {confidenceIsLow || message ? (
           <div className="mt-3 rounded-[8px] border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold leading-6 text-amber-800">
-            {message ?? "自動検出が怪しいので四隅を確認してください。"}
+            {message ?? "自動検出が怪しいため、白枠の外側四隅に手動で合わせてください。"}
+            <span className="mt-1 block text-xs leading-5 text-amber-700">拡大して調整を押すと、端の丸を合わせやすくなります。</span>
           </div>
         ) : null}
 
@@ -104,7 +110,7 @@ export function CornerEditor({
           <button
             type="button"
             onClick={() => setIsZoomed((value) => !value)}
-            className="min-h-10 rounded-[8px] border border-zinc-300 bg-white px-3 text-sm font-bold text-ink"
+            className={`min-h-10 rounded-[8px] px-3 text-sm font-bold ${confidenceIsLow ? "bg-ink text-white" : "border border-zinc-300 bg-white text-ink"}`}
           >
             {isZoomed ? "通常表示" : "拡大して調整"}
           </button>
@@ -205,6 +211,45 @@ export function CornerEditor({
         >
           台形補正する
         </button>
+
+        <div className="mt-4 border-t border-zinc-100 pt-3">
+          <button type="button" onClick={() => setShowDebug((value) => !value)} className="text-sm font-bold text-zinc-700 underline decoration-zinc-300 underline-offset-4">
+            {showDebug ? "検出デバッグを閉じる" : "検出デバッグ"}
+          </button>
+          {showDebug ? (
+            <div className="mt-3 rounded-[8px] bg-zinc-50 p-3 text-xs leading-5 text-zinc-700">
+              <dl className="grid grid-cols-2 gap-x-3 gap-y-1">
+                <dt className="font-bold">method</dt>
+                <dd>{method ?? "-"}</dd>
+                <dt className="font-bold">strategy</dt>
+                <dd>{strategy ?? debug?.strategy ?? "-"}</dd>
+                <dt className="font-bold">confidence</dt>
+                <dd>{typeof confidence === "number" ? confidence.toFixed(3) : "-"}</dd>
+                <dt className="font-bold">best score</dt>
+                <dd>{formatDebug(debug?.bestScore)}</dd>
+                <dt className="font-bold">candidates</dt>
+                <dd>{debug?.candidateCount ?? "-"}</dd>
+                <dt className="font-bold">area ratio</dt>
+                <dd>{formatDebug(debug?.areaRatio)}</dd>
+                <dt className="font-bold">ratio</dt>
+                <dd>{formatDebug(debug?.ratio)}</dd>
+                <dt className="font-bold">edge touches</dt>
+                <dd>{debug?.edgeTouches ?? "-"}</dd>
+                <dt className="font-bold">ring score</dt>
+                <dd>{formatDebug(debug?.ringScore)}</dd>
+                <dt className="font-bold">reason</dt>
+                <dd>{debug?.reason ?? "-"}</dd>
+              </dl>
+              {debug?.maskPreviewUrl ? (
+                <div className="mt-3">
+                  <p className="mb-2 font-bold">mask preview</p>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={debug.maskPreviewUrl} alt="白マスクのデバッグプレビュー" className="w-full rounded-[6px] border border-zinc-200 bg-white" />
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       </div>
     </section>
   );
@@ -234,6 +279,10 @@ function clientToImagePoint(clientX: number, clientY: number, svg: SVGSVGElement
 
 function quadToSvg(quad: Quad): string {
   return quad.map((point) => `${point.x},${point.y}`).join(" ");
+}
+
+function formatDebug(value: number | undefined): string {
+  return typeof value === "number" ? value.toFixed(3) : "-";
 }
 
 function clamp(value: number, min: number, max: number): number {
