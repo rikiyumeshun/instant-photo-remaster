@@ -7,6 +7,8 @@ export type Quad = [Point, Point, Point, Point];
 
 export type EnhancementPreset = "natural" | "crisp" | "soft" | "retro";
 
+export type EnhancementEngine = "local" | "ai";
+
 export type OutputMode = "frame" | "inner";
 
 export type CropSettings = {
@@ -24,7 +26,8 @@ export type ProcessedImage = {
 export type DetectionResult = {
   quad: Quad;
   confidence: number;
-  method: "auto" | "fallback";
+  method: "opencv" | "heuristic" | "fallback";
+  message?: string;
 };
 
 export const DEFAULT_CROP_SETTINGS: CropSettings = {

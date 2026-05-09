@@ -8,7 +8,7 @@ import { applyEnhancementPreset } from "@/lib/image/enhance";
 import { exportImage, makeExportFileName, shareImage } from "@/lib/image/export";
 import { perspectiveTransform } from "@/lib/image/perspective";
 import { upscaleImage } from "@/lib/image/upscale";
-import type { CropSettings, DetectionResult, EnhancementPreset, OutputMode, Quad } from "@/lib/image/types";
+import type { CropSettings, DetectionResult, EnhancementEngine, EnhancementPreset, OutputMode, Quad } from "@/lib/image/types";
 import { DEFAULT_CROP_SETTINGS } from "@/lib/image/types";
 
 type ProcessorState = {
@@ -20,6 +20,7 @@ type ProcessorState = {
   quad: Quad | null;
   detection: DetectionResult | null;
   preset: EnhancementPreset;
+  enhancementEngine: EnhancementEngine;
   outputMode: OutputMode;
   cropSettings: CropSettings;
   isProcessing: boolean;
@@ -37,6 +38,7 @@ const initialState: ProcessorState = {
   quad: null,
   detection: null,
   preset: "natural",
+  enhancementEngine: "local",
   outputMode: "frame",
   cropSettings: DEFAULT_CROP_SETTINGS,
   isProcessing: false,
@@ -104,8 +106,12 @@ export function useImageProcessor() {
         comparisonUrl: null,
         isProcessing: false,
       }));
-    } catch {
-      setState((current) => ({ ...current, isProcessing: false, error: "台形補正に失敗しました。四隅の位置を少し内側に調整してください。" }));
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        isProcessing: false,
+        error: error instanceof Error ? error.message : "台形補正に失敗しました。四隅の位置を少し内側に調整してください。",
+      }));
     }
   }, [state.quad]);
 
@@ -115,6 +121,9 @@ export function useImageProcessor() {
     setState((current) => ({ ...current, isProcessing: true, error: null }));
     await yieldToBrowser();
     try {
+      if (state.enhancementEngine === "ai") {
+        throw new Error("AI補正は準備中です。現在はローカル高速補正を選んでください。");
+      }
       const target = state.outputMode === "inner" ? cropInnerPhoto(corrected, state.cropSettings) : corrected;
       const enhanced = applyEnhancementPreset(target, state.preset);
       const finalCanvas = state.upscale ? upscaleImage(enhanced, 2) : enhanced;
@@ -126,10 +135,14 @@ export function useImageProcessor() {
         isProcessing: false,
         canShare: typeof navigator !== "undefined" && "share" in navigator,
       }));
-    } catch {
-      setState((current) => ({ ...current, isProcessing: false, error: "補正画像の作成に失敗しました。別の画像または出力設定をお試しください。" }));
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        isProcessing: false,
+        error: error instanceof Error ? error.message : "補正画像の作成に失敗しました。別の画像または出力設定をお試しください。",
+      }));
     }
-  }, [state.cropSettings, state.outputMode, state.preset, state.upscale]);
+  }, [state.cropSettings, state.enhancementEngine, state.outputMode, state.preset, state.upscale]);
 
   const saveFinal = useCallback(async () => {
     const canvas = finalCanvasRef.current;
@@ -173,6 +186,7 @@ export function useImageProcessor() {
       saveFinal,
       saveComparison,
       shareFinal,
+      setEnhancementEngine: (enhancementEngine: EnhancementEngine) => setState((current) => ({ ...current, enhancementEngine, finalUrl: null, comparisonUrl: null })),
       setPreset: (preset: EnhancementPreset) => setState((current) => ({ ...current, preset, finalUrl: null, comparisonUrl: null })),
       setOutputMode: (outputMode: OutputMode) => setState((current) => ({ ...current, outputMode, finalUrl: null, comparisonUrl: null })),
       setCropSettings: (cropSettings: CropSettings) => setState((current) => ({ ...current, cropSettings, finalUrl: null, comparisonUrl: null })),

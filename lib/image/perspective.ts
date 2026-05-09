@@ -4,15 +4,20 @@ import { getCanvasContext } from "./canvas";
 const FRAME_RATIO = 54 / 85;
 
 export function perspectiveTransform(source: HTMLCanvasElement, quad: Quad): HTMLCanvasElement {
-  const top = distance(quad[0], quad[1]);
-  const right = distance(quad[1], quad[2]);
-  const bottom = distance(quad[2], quad[3]);
-  const left = distance(quad[3], quad[0]);
-  const sourceWide = (top + bottom) / 2 > (left + right) / 2;
+  const orderedQuad = orderQuad(quad);
+  validateQuad(orderedQuad, source.width, source.height);
 
-  const longEdge = Math.max((top + bottom) / 2, (left + right) / 2);
-  const targetWidth = sourceWide ? Math.round(longEdge) : Math.round(longEdge * FRAME_RATIO);
-  const targetHeight = sourceWide ? Math.round(longEdge * FRAME_RATIO) : Math.round(longEdge);
+  const top = distance(orderedQuad[0], orderedQuad[1]);
+  const right = distance(orderedQuad[1], orderedQuad[2]);
+  const bottom = distance(orderedQuad[2], orderedQuad[3]);
+  const left = distance(orderedQuad[3], orderedQuad[0]);
+  const averageWidth = (top + bottom) / 2;
+  const averageHeight = (left + right) / 2;
+  const sourceWide = averageWidth > averageHeight;
+  const expectedLong = sourceWide ? averageWidth : averageHeight;
+
+  const targetWidth = sourceWide ? Math.round(expectedLong) : Math.round(expectedLong * FRAME_RATIO);
+  const targetHeight = sourceWide ? Math.round(expectedLong * FRAME_RATIO) : Math.round(expectedLong);
   const width = clamp(targetWidth, 420, 1800);
   const height = clamp(targetHeight, 420, 2400);
 
@@ -23,7 +28,7 @@ export function perspectiveTransform(source: HTMLCanvasElement, quad: Quad): HTM
     { x: 0, y: height - 1 },
   ];
 
-  const transform = computeHomography(destination, quad);
+  const transform = computeHomography(destination, orderedQuad);
   const output = document.createElement("canvas");
   output.width = width;
   output.height = height;
@@ -46,6 +51,40 @@ export function perspectiveTransform(source: HTMLCanvasElement, quad: Quad): HTM
 
   ctx.putImageData(out, 0, 0);
   return output;
+}
+
+export function orderQuad(quad: Quad): Quad {
+  const center = {
+    x: quad.reduce((sum, point) => sum + point.x, 0) / quad.length,
+    y: quad.reduce((sum, point) => sum + point.y, 0) / quad.length,
+  };
+  const sorted = [...quad].sort((a, b) => Math.atan2(a.y - center.y, a.x - center.x) - Math.atan2(b.y - center.y, b.x - center.x));
+  const startIndex = sorted.reduce((bestIndex, point, index) => (point.x + point.y < sorted[bestIndex].x + sorted[bestIndex].y ? index : bestIndex), 0);
+  return [sorted[startIndex], sorted[(startIndex + 1) % 4], sorted[(startIndex + 2) % 4], sorted[(startIndex + 3) % 4]] as Quad;
+}
+
+function validateQuad(quad: Quad, imageWidth: number, imageHeight: number): void {
+  if (segmentsIntersect(quad[0], quad[1], quad[2], quad[3]) || segmentsIntersect(quad[1], quad[2], quad[3], quad[0])) {
+    throw new Error("四隅が交差しています。丸を白枠の外側四隅へ順番に合わせてください。");
+  }
+
+  const area = polygonArea(quad);
+  const imageArea = imageWidth * imageHeight;
+  if (area < imageArea * 0.025) {
+    throw new Error("四隅が近すぎます。白枠全体を囲むように広げてください。");
+  }
+
+  const edges = quad.map((point, index) => distance(point, quad[(index + 1) % quad.length]));
+  if (Math.min(...edges) < Math.min(imageWidth, imageHeight) * 0.04) {
+    throw new Error("四隅の一部が近すぎます。角を離して調整してください。");
+  }
+
+  const width = (edges[0] + edges[2]) / 2;
+  const height = (edges[1] + edges[3]) / 2;
+  const ratio = width / Math.max(1, height);
+  if (ratio < 0.28 || ratio > 3.2) {
+    throw new Error("四角形が極端に細くなっています。四隅の位置を確認してください。");
+  }
 }
 
 function computeHomography(from: Quad, to: Quad): number[] {
@@ -125,6 +164,24 @@ function pixel(data: Uint8ClampedArray, width: number, x: number, y: number): [n
 
 function distance(a: Point, b: Point): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function polygonArea(points: Quad): number {
+  let area = 0;
+  for (let i = 0; i < points.length; i += 1) {
+    const next = points[(i + 1) % points.length];
+    area += points[i].x * next.y - next.x * points[i].y;
+  }
+  return Math.abs(area / 2);
+}
+
+function segmentsIntersect(a: Point, b: Point, c: Point, d: Point): boolean {
+  const direction = (p1: Point, p2: Point, p3: Point) => (p3.x - p1.x) * (p2.y - p1.y) - (p2.x - p1.x) * (p3.y - p1.y);
+  const d1 = direction(a, b, c);
+  const d2 = direction(a, b, d);
+  const d3 = direction(c, d, a);
+  const d4 = direction(c, d, b);
+  return d1 * d2 < 0 && d3 * d4 < 0;
 }
 
 function clamp(value: number, min: number, max: number): number {

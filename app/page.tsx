@@ -32,17 +32,21 @@ export default function Home() {
           onApply={actions.applyCorrection}
           disabled={state.isProcessing}
           confidence={state.detection?.confidence}
+          method={state.detection?.method}
+          message={state.detection?.message}
           imageWidth={state.sourceSize?.width}
           imageHeight={state.sourceSize?.height}
         />
         <PhotoPreview src={state.correctedUrl} label="台形補正後" emptyText="四隅を合わせて台形補正すると表示されます。" />
         <PresetSelector
           preset={state.preset}
+          enhancementEngine={state.enhancementEngine}
           outputMode={state.outputMode}
           cropSettings={state.cropSettings}
           upscale={state.upscale}
           disabled={!state.correctedUrl || state.isProcessing}
           onPresetChange={actions.setPreset}
+          onEnhancementEngineChange={actions.setEnhancementEngine}
           onOutputModeChange={actions.setOutputMode}
           onCropSettingsChange={actions.setCropSettings}
           onUpscaleChange={actions.setUpscale}
