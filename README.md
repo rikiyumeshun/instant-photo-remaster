@@ -80,10 +80,10 @@
 
 AI高画質化はPoCとして実装されています。ユーザーが同意チェックをオンにした場合のみ、写真をサーバーへ送信します。
 
-現在の経路は以下です。
+スマホ公開版では、GitHub Pagesの静的フロントエンドからRender無料枠のFastAPIサーバーへ直接送信する構成にしています。
 
 ```text
-Frontend -> Next.js API Route (/api/ai-enhance) -> FastAPI AI server -> Frontend
+GitHub Pages Frontend -> FastAPI AI server on Render -> Frontend
 ```
 
 サーバー側では画像をディスクに保存せず、メモリ上で処理します。現在のAIサーバーはPillowによるダミー補正です。2倍リサイズ、軽いコントラスト、彩度、シャープ処理を行います。
@@ -110,6 +110,20 @@ npm run lint
 npm run build
 ```
 
+## 無料枠サーバー Render
+
+`render.yaml` を追加しているため、RenderのBlueprintとしてこのGitHubリポジトリを接続すると、`instant-photo-remaster-ai` というPython Web Serviceを作成できます。
+
+想定URL:
+
+```text
+https://instant-photo-remaster-ai.onrender.com/enhance
+```
+
+GitHub Pagesのビルドでは `NEXT_PUBLIC_AI_ENHANCE_ENDPOINT` にこのURLを設定しています。Render側のURLやサービス名を変える場合は、`.github/workflows/pages.yml` の環境変数も合わせて変更してください。
+
+Renderの無料Web Serviceは検証・趣味用途向けです。一定時間アクセスがないとスリープするため、初回AI補正は起動待ちで遅くなることがあります。
+
 ## AIサーバー起動方法 macOS / Linux
 
 ```bash
@@ -120,10 +134,10 @@ pip install -r requirements.txt
 uvicorn app.main:app --host 0.0.0.0 --port 8001
 ```
 
-Next.js側は環境変数を指定して起動します。
+Next.js側は環境変数を指定して起動します。ローカル開発ではFastAPIを直接呼びます。
 
 ```bash
-AI_ENHANCE_SERVER_URL=http://localhost:8001/enhance npm run dev
+NEXT_PUBLIC_AI_ENHANCE_ENDPOINT=http://localhost:8001/enhance npm run dev
 ```
 
 ## AIサーバー起動方法 Windows PowerShell
@@ -139,7 +153,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8001
 Next.js側:
 
 ```powershell
-$env:AI_ENHANCE_SERVER_URL="http://localhost:8001/enhance"
+$env:NEXT_PUBLIC_AI_ENHANCE_ENDPOINT="http://localhost:8001/enhance"
 npm run dev
 ```
 
@@ -153,4 +167,4 @@ Next.js frontend と Python ai-server を同時に起動します。
 
 ## 注意
 
-Next.js API RouteはGitHub Pagesの静的ホスティングでは動きません。AI高画質化PoCを使う場合は、`npm run dev`、Node.jsサーバー、Vercel、Dockerなど、API Routeを実行できる環境で動かしてください。GitHub Actionsでは `npm run lint` と `npm run build` を検証しています。
+GitHub Pagesは静的ホスティングなので、サーバー処理は実行できません。そのためAI高画質化は外部のFastAPIサーバーへ送信します。AIサーバーが未デプロイ、スリープ中、または失敗している場合は、ローカル高速補正を使ってください。

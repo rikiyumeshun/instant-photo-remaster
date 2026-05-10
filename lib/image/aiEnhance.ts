@@ -9,7 +9,10 @@ export type AIEnhanceResult = {
 };
 
 export async function enhanceWithAI(image: Blob, options: AIEnhanceOptions = {}): Promise<AIEnhanceResult> {
-  const endpoint = options.endpoint ?? "/api/ai-enhance";
+  const endpoint = options.endpoint ?? process.env.NEXT_PUBLIC_AI_ENHANCE_ENDPOINT;
+  if (!endpoint) {
+    throw new Error("AI高画質化サーバーが未設定です。ローカル補正をお試しください。");
+  }
   const formData = new FormData();
   formData.append("image", image, "instant-photo.jpg");
 

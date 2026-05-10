@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: instant-photo-remaster-ai
+    runtime: python
+    plan: free
+    rootDir: ai-server
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: ALLOWED_ORIGINS
+        value: https://rikiyumeshun.github.io,http://localhost:3000,http://127.0.0.1:3000
