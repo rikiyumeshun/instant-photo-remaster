@@ -14,13 +14,7 @@ export function makeExportFileName(prefix = "instant-photo-remaster"): string {
 }
 
 export async function exportImage(canvas: HTMLCanvasElement, fileName = makeExportFileName()): Promise<Blob> {
-  const blob = await new Promise<Blob | null>((resolve) => {
-    canvas.toBlob(resolve, "image/jpeg", 0.92);
-  });
-
-  if (!blob) {
-    throw new Error("画像を書き出せませんでした。");
-  }
+  const blob = await canvasToBlob(canvas);
 
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
@@ -31,6 +25,18 @@ export async function exportImage(canvas: HTMLCanvasElement, fileName = makeExpo
   anchor.remove();
   URL.revokeObjectURL(url);
   return blob;
+}
+
+export function canvasToBlob(canvas: HTMLCanvasElement, type = "image/jpeg", quality = 0.92): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error("画像のBlob変換に失敗しました。"));
+        return;
+      }
+      resolve(blob);
+    }, type, quality);
+  });
 }
 
 export async function shareImage(blob: Blob, fileName: string): Promise<boolean> {

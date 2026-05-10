@@ -6,12 +6,14 @@ import { PRESET_LABELS } from "@/lib/image/types";
 type Props = {
   preset: EnhancementPreset;
   enhancementEngine: EnhancementEngine;
+  aiConsent: boolean;
   outputMode: OutputMode;
   cropSettings: CropSettings;
   upscale: boolean;
   disabled?: boolean;
   onPresetChange: (preset: EnhancementPreset) => void;
   onEnhancementEngineChange: (engine: EnhancementEngine) => void;
+  onAiConsentChange: (consent: boolean) => void;
   onOutputModeChange: (mode: OutputMode) => void;
   onCropSettingsChange: (settings: CropSettings) => void;
   onUpscaleChange: (upscale: boolean) => void;
@@ -28,12 +30,14 @@ const descriptions: Record<EnhancementPreset, string> = {
 export function PresetSelector({
   preset,
   enhancementEngine,
+  aiConsent,
   outputMode,
   cropSettings,
   upscale,
   disabled,
   onPresetChange,
   onEnhancementEngineChange,
+  onAiConsentChange,
   onOutputModeChange,
   onCropSettingsChange,
   onUpscaleChange,
@@ -52,16 +56,25 @@ export function PresetSelector({
               className={`rounded-[8px] border p-3 text-left ${enhancementEngine === "local" ? "border-ink bg-white" : "border-zinc-200 bg-white"}`}
             >
               <span className="block text-sm font-bold text-ink">ローカル高速補正</span>
-              <span className="mt-1 block text-xs leading-5 text-zinc-600">写真はブラウザ内で処理され、外部送信されません。</span>
+              <span className="mt-1 block text-xs leading-5 text-zinc-600">ブラウザ内で処理します。写真は外部サーバーへ送信されません。高速ですが、AI復元ではありません。</span>
             </button>
-            <button type="button" disabled className="rounded-[8px] border border-zinc-200 bg-white p-3 text-left opacity-55">
-              <span className="block text-sm font-bold text-ink">AI補正（準備中）</span>
-              <span className="mt-1 block text-xs leading-5 text-zinc-600">将来、Real-ESRGAN / InstantIR などのAI復元モデルをサーバー側に追加予定です。</span>
+            <button
+              type="button"
+              onClick={() => onEnhancementEngineChange("ai")}
+              className={`rounded-[8px] border p-3 text-left ${enhancementEngine === "ai" ? "border-ink bg-white" : "border-zinc-200 bg-white"}`}
+            >
+              <span className="block text-sm font-bold text-ink">AI高画質化</span>
+              <span className="mt-1 block text-xs leading-5 text-zinc-600">サーバー側で高画質化処理を行います。ローカル補正より時間がかかり、写真をサーバーへ送信します。</span>
             </button>
           </div>
-          <p className="mt-3 text-xs leading-5 text-zinc-600">
-            AI補正を使う場合、画像を外部サーバーへ送信する可能性があります。実装時はユーザーの明示的な同意を必須にします。
-          </p>
+          {enhancementEngine === "ai" ? (
+            <label className="mt-3 flex items-start gap-3 rounded-[8px] border border-amber-200 bg-amber-50 p-3">
+              <input type="checkbox" checked={aiConsent} onChange={(event) => onAiConsentChange(event.target.checked)} className="mt-1 h-5 w-5 shrink-0 accent-ink" />
+              <span className="text-xs font-semibold leading-5 text-amber-900">
+                AI高画質化では、補正のために写真をサーバーへ送信します。処理後、画像はサーバーに保存しない設計です。この内容に同意して実行します。
+              </span>
+            </label>
+          ) : null}
         </div>
         <div className="mt-4 grid gap-3">
           {(Object.keys(PRESET_LABELS) as EnhancementPreset[]).map((key) => (

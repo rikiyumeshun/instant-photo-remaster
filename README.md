@@ -23,7 +23,7 @@
 - Canvas API によるローカル画像処理
 - PWA manifest 対応
 
-選択した写真は外部サーバーに送信しません。処理はブラウザ内の Canvas で行います。
+ローカル高速補正を選んだ場合、選択した写真は外部サーバーに送信しません。AI高画質化を選んだ場合のみ、明示的な同意後にNext.js API Route経由でAIサーバーへ送信します。
 
 ## 画像処理パイプライン
 
@@ -70,7 +70,25 @@
 
 ## AI超解像の追加方針
 
-AI超解像は `lib/image/upscale.ts` の `upscaleImage()`、または `lib/image/aiEnhance.ts` の `enhanceWithAI()` を差し替える形で追加できます。現時点のUIでは「AI補正（準備中）」を disabled にしており、ローカル高速補正だけが有効です。
+### ローカル補正
+
+- ブラウザ内で処理します。
+- 写真は外部送信されません。
+- 高速ですが、AI復元ではありません。
+
+### AI補正PoC
+
+AI高画質化はPoCとして実装されています。ユーザーが同意チェックをオンにした場合のみ、写真をサーバーへ送信します。
+
+現在の経路は以下です。
+
+```text
+Frontend -> Next.js API Route (/api/ai-enhance) -> FastAPI AI server -> Frontend
+```
+
+サーバー側では画像をディスクに保存せず、メモリ上で処理します。現在のAIサーバーはPillowによるダミー補正です。2倍リサイズ、軽いコントラスト、彩度、シャープ処理を行います。
+
+AI超解像は `lib/image/upscale.ts` の `upscaleImage()`、または `lib/image/aiEnhance.ts` の `enhanceWithAI()` / `ai-server/app/processors` を差し替える形で追加できます。
 
 候補として以下があります。
 
@@ -81,21 +99,58 @@ AI超解像は `lib/image/upscale.ts` の `upscaleImage()`、または `lib/imag
 
 サーバーAI補正を使う場合、画像が外部サーバーへ送信されます。そのため、UI上で外部送信の有無、保存しない設計、利用モデルの性質、顔が変わる可能性を明示し、ユーザーの明示的な同意を取る必要があります。
 
+Real-ESRGANは候補ですが、モデル本体、重み、依存ライブラリのライセンス確認が必要です。GPU推奨です。CPUでも動く可能性はありますが、非常に遅い可能性があります。
+
 ## 開発
 
 ```bash
 npm install
+npm run dev
 npm run lint
 npm run build
 ```
 
-## GitHub Pages で公開
+## AIサーバー起動方法 macOS / Linux
 
-このリポジトリは GitHub Actions で静的サイトを書き出して GitHub Pages に公開できます。
+```bash
+cd ai-server
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8001
+```
 
-1. GitHub にリポジトリを作成します。
-2. `main` ブランチへ push します。
-3. GitHub の `Settings > Pages` で Source を `GitHub Actions` にします。
-4. `Deploy to GitHub Pages` workflow が完了すると Pages URL が発行されます。
+Next.js側は環境変数を指定して起動します。
 
-GitHub Pages ビルド時はリポジトリ名に合わせて `basePath` を自動設定します。Vercel や独自ドメインで公開する場合は通常の `npm run build` で動きます。
+```bash
+AI_ENHANCE_SERVER_URL=http://localhost:8001/enhance npm run dev
+```
+
+## AIサーバー起動方法 Windows PowerShell
+
+```powershell
+cd ai-server
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8001
+```
+
+Next.js側:
+
+```powershell
+$env:AI_ENHANCE_SERVER_URL="http://localhost:8001/enhance"
+npm run dev
+```
+
+## Docker Compose
+
+```bash
+docker compose up
+```
+
+Next.js frontend と Python ai-server を同時に起動します。
+
+## 注意
+
+Next.js API RouteはGitHub Pagesの静的ホスティングでは動きません。AI高画質化PoCを使う場合は、`npm run dev`、Node.jsサーバー、Vercel、Dockerなど、API Routeを実行できる環境で動かしてください。GitHub Actionsでは `npm run lint` と `npm run build` を検証しています。

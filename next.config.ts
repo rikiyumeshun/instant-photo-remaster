@@ -7,7 +7,7 @@ const basePath = isGitHubPages && repositoryName && !isUserOrOrgPage ? `/${repos
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  output: "export",
+  output: isGitHubPages ? "export" : undefined,
   trailingSlash: true,
   images: {
     unoptimized: true,

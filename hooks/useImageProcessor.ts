@@ -5,7 +5,8 @@ import { imageToCanvas, loadImageFile, resizeForProcessing } from "@/lib/image/c
 import { cropInnerPhoto } from "@/lib/image/crop";
 import { detectInstantPhotoFrame } from "@/lib/image/detectFrame";
 import { applyEnhancementPreset } from "@/lib/image/enhance";
-import { exportImage, makeExportFileName, shareImage } from "@/lib/image/export";
+import { enhanceWithAI } from "@/lib/image/aiEnhance";
+import { canvasToBlob, exportImage, makeExportFileName, shareImage } from "@/lib/image/export";
 import { perspectiveTransform } from "@/lib/image/perspective";
 import { upscaleImage } from "@/lib/image/upscale";
 import type { CropSettings, DetectionResult, EnhancementEngine, EnhancementPreset, OutputMode, Quad } from "@/lib/image/types";
@@ -21,9 +22,11 @@ type ProcessorState = {
   detection: DetectionResult | null;
   preset: EnhancementPreset;
   enhancementEngine: EnhancementEngine;
+  aiConsent: boolean;
   outputMode: OutputMode;
   cropSettings: CropSettings;
   isProcessing: boolean;
+  processingMessage: string | null;
   error: string | null;
   canShare: boolean;
   upscale: boolean;
@@ -39,9 +42,11 @@ const initialState: ProcessorState = {
   detection: null,
   preset: "natural",
   enhancementEngine: "local",
+  aiConsent: false,
   outputMode: "frame",
   cropSettings: DEFAULT_CROP_SETTINGS,
   isProcessing: false,
+  processingMessage: null,
   error: null,
   canShare: false,
   upscale: true,
@@ -54,7 +59,7 @@ export function useImageProcessor() {
   const [state, setState] = useState<ProcessorState>(initialState);
 
   const loadFile = useCallback(async (file: File) => {
-    setState((current) => ({ ...current, isProcessing: true, error: null }));
+    setState((current) => ({ ...current, isProcessing: true, processingMessage: "画像を読み込んでいます...", error: null }));
     try {
       const image = await loadImageFile(file);
       const raw = imageToCanvas(image);
@@ -73,12 +78,14 @@ export function useImageProcessor() {
         quad: detection.quad,
         detection,
         isProcessing: false,
+        processingMessage: null,
         error: null,
       }));
     } catch (error) {
       setState((current) => ({
         ...current,
         isProcessing: false,
+        processingMessage: null,
         error: error instanceof Error ? error.message : "画像の読み込みに失敗しました。",
       }));
     }
@@ -93,7 +100,7 @@ export function useImageProcessor() {
   const applyCorrection = useCallback(async () => {
     const source = sourceCanvasRef.current;
     if (!source || !state.quad) return;
-    setState((current) => ({ ...current, isProcessing: true, error: null }));
+    setState((current) => ({ ...current, isProcessing: true, processingMessage: "台形補正中です...", error: null }));
     await yieldToBrowser();
     try {
       const corrected = perspectiveTransform(source, state.quad);
@@ -105,11 +112,13 @@ export function useImageProcessor() {
         finalUrl: null,
         comparisonUrl: null,
         isProcessing: false,
+        processingMessage: null,
       }));
     } catch (error) {
       setState((current) => ({
         ...current,
         isProcessing: false,
+        processingMessage: null,
         error: error instanceof Error ? error.message : "台形補正に失敗しました。四隅の位置を少し内側に調整してください。",
       }));
     }
@@ -118,41 +127,53 @@ export function useImageProcessor() {
   const renderFinal = useCallback(async () => {
     const corrected = correctedCanvasRef.current;
     if (!corrected) return;
-    setState((current) => ({ ...current, isProcessing: true, error: null }));
+    if (state.enhancementEngine === "ai" && !state.aiConsent) {
+      setState((current) => ({ ...current, error: "AI高画質化を実行するには、写真をサーバーへ送信することへの同意が必要です。" }));
+      return;
+    }
+    setState((current) => ({
+      ...current,
+      isProcessing: true,
+      processingMessage: state.enhancementEngine === "ai" ? "AI補正中です。少し時間がかかります..." : "補正画像を作成しています...",
+      error: null,
+    }));
     await yieldToBrowser();
     try {
-      if (state.enhancementEngine === "ai") {
-        throw new Error("AI補正は準備中です。現在はローカル高速補正を選んでください。");
-      }
       const target = state.outputMode === "inner" ? cropInnerPhoto(corrected, state.cropSettings) : corrected;
-      const enhanced = applyEnhancementPreset(target, state.preset);
-      const finalCanvas = state.upscale ? upscaleImage(enhanced, 2) : enhanced;
+      const finalCanvas = state.enhancementEngine === "ai" ? await renderAIEnhancedCanvas(target) : renderLocalEnhancedCanvas(target, state.preset, state.upscale);
       finalCanvasRef.current = finalCanvas;
       setState((current) => ({
         ...current,
         finalUrl: finalCanvas.toDataURL("image/jpeg", 0.92),
         comparisonUrl: makeComparison(corrected, finalCanvas),
         isProcessing: false,
+        processingMessage: null,
         canShare: typeof navigator !== "undefined" && "share" in navigator,
       }));
     } catch (error) {
       setState((current) => ({
         ...current,
         isProcessing: false,
-        error: error instanceof Error ? error.message : "補正画像の作成に失敗しました。別の画像または出力設定をお試しください。",
+        processingMessage: null,
+        error:
+          state.enhancementEngine === "ai"
+            ? "AI補正に失敗しました。ローカル補正をお試しください。"
+            : error instanceof Error
+              ? error.message
+              : "補正画像の作成に失敗しました。別の画像または出力設定をお試しください。",
       }));
     }
-  }, [state.cropSettings, state.enhancementEngine, state.outputMode, state.preset, state.upscale]);
+  }, [state.aiConsent, state.cropSettings, state.enhancementEngine, state.outputMode, state.preset, state.upscale]);
 
   const saveFinal = useCallback(async () => {
     const canvas = finalCanvasRef.current;
     if (!canvas) return;
-    setState((current) => ({ ...current, isProcessing: true, error: null }));
+    setState((current) => ({ ...current, isProcessing: true, processingMessage: "保存しています...", error: null }));
     try {
       await exportImage(canvas);
-      setState((current) => ({ ...current, isProcessing: false }));
+      setState((current) => ({ ...current, isProcessing: false, processingMessage: null }));
     } catch {
-      setState((current) => ({ ...current, isProcessing: false, error: "保存に失敗しました。ブラウザのダウンロード許可を確認してください。" }));
+      setState((current) => ({ ...current, isProcessing: false, processingMessage: null, error: "保存に失敗しました。ブラウザのダウンロード許可を確認してください。" }));
     }
   }, []);
 
@@ -186,7 +207,9 @@ export function useImageProcessor() {
       saveFinal,
       saveComparison,
       shareFinal,
-      setEnhancementEngine: (enhancementEngine: EnhancementEngine) => setState((current) => ({ ...current, enhancementEngine, finalUrl: null, comparisonUrl: null })),
+      setEnhancementEngine: (enhancementEngine: EnhancementEngine) =>
+        setState((current) => ({ ...current, enhancementEngine, aiConsent: enhancementEngine === "local" ? false : current.aiConsent, finalUrl: null, comparisonUrl: null })),
+      setAiConsent: (aiConsent: boolean) => setState((current) => ({ ...current, aiConsent, finalUrl: null, comparisonUrl: null })),
       setPreset: (preset: EnhancementPreset) => setState((current) => ({ ...current, preset, finalUrl: null, comparisonUrl: null })),
       setOutputMode: (outputMode: OutputMode) => setState((current) => ({ ...current, outputMode, finalUrl: null, comparisonUrl: null })),
       setCropSettings: (cropSettings: CropSettings) => setState((current) => ({ ...current, cropSettings, finalUrl: null, comparisonUrl: null })),
@@ -218,6 +241,30 @@ function makeComparison(before: HTMLCanvasElement, after: HTMLCanvasElement): st
   ctx.fillText("Before", 24, 36);
   ctx.fillText("After", after.width + 24, 36);
   return canvas.toDataURL("image/jpeg", 0.9);
+}
+
+function renderLocalEnhancedCanvas(target: HTMLCanvasElement, preset: EnhancementPreset, upscale: boolean): HTMLCanvasElement {
+  const enhanced = applyEnhancementPreset(target, preset);
+  return upscale ? upscaleImage(enhanced, 2) : enhanced;
+}
+
+async function renderAIEnhancedCanvas(target: HTMLCanvasElement): Promise<HTMLCanvasElement> {
+  const blob = await canvasToBlob(target, "image/jpeg", 0.92);
+  const result = await enhanceWithAI(blob);
+  return blobToCanvas(result.blob);
+}
+
+async function blobToCanvas(blob: Blob): Promise<HTMLCanvasElement> {
+  const url = URL.createObjectURL(blob);
+  try {
+    const image = new Image();
+    image.decoding = "async";
+    image.src = url;
+    await image.decode();
+    return imageToCanvas(image);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 function yieldToBrowser(): Promise<void> {

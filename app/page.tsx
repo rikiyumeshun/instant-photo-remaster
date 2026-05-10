@@ -43,12 +43,14 @@ export default function Home() {
         <PresetSelector
           preset={state.preset}
           enhancementEngine={state.enhancementEngine}
+          aiConsent={state.aiConsent}
           outputMode={state.outputMode}
           cropSettings={state.cropSettings}
           upscale={state.upscale}
           disabled={!state.correctedUrl || state.isProcessing}
           onPresetChange={actions.setPreset}
           onEnhancementEngineChange={actions.setEnhancementEngine}
+          onAiConsentChange={actions.setAiConsent}
           onOutputModeChange={actions.setOutputMode}
           onCropSettingsChange={actions.setCropSettings}
           onUpscaleChange={actions.setUpscale}
@@ -66,7 +68,7 @@ export default function Home() {
       </div>
       {state.isProcessing ? (
         <div className="fixed inset-x-4 bottom-4 z-20 mx-auto max-w-xl rounded-[8px] bg-ink px-4 py-3 text-center text-sm font-bold text-white shadow-soft">
-          画像を処理しています...
+          {state.processingMessage ?? "画像を処理しています..."}
         </div>
       ) : null}
     </main>
