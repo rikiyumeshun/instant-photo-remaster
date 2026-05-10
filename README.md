@@ -153,6 +153,7 @@ AI高画質化は、最初は「無料ベータ」または「手動発行のア
   - `STRIPE_PACK_100_URL`
 - GitHub Pagesを再ビルドすると、AI高画質化UIに購入ボタンが表示されます。
 - Renderの環境変数 `AI_ACCESS_CODES` にカンマ区切りでコードを設定すると、AIサーバーはそのコードを持つリクエストだけ受け付けます。
+- GitHub Pagesのビルドでは `NEXT_PUBLIC_AI_ACCESS_CODE_REQUIRED=true` を設定しています。AIアクセスコードが空欄の場合は、サーバーへ送信する前にフロント側でエラーを表示します。コードが間違っている場合やRender側で無効なコードとして拒否された場合も、専用のエラー文言を表示します。
 
 このPoCはDBなしの簡易ゲートです。チケット残数の自動消費、ユーザーアカウント、Stripe Webhookによる自動付与は未実装です。本番課金では、Stripe Checkout + Webhook + DBで残回数を管理してください。
 

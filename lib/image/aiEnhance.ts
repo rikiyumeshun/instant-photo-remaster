@@ -27,10 +27,14 @@ export async function enhanceWithAI(image: Blob, options: AIEnhanceOptions = {})
   });
 
   if (!response.ok) {
+    if (response.status === 401 || response.status === 402 || response.status === 403) {
+      throw new Error("AIアクセスコードが正しくないか、利用できないコードです。コードを確認してください。");
+    }
+
     let message = "AI補正サーバーでエラーが発生しました。";
     try {
-      const payload = (await response.json()) as { error?: string };
-      if (payload.error) message = payload.error;
+      const payload = (await response.json()) as { error?: string; detail?: string };
+      if (payload.error || payload.detail) message = payload.error ?? payload.detail ?? message;
     } catch {
       // Keep the generic user-facing message when the server returns non-JSON.
     }

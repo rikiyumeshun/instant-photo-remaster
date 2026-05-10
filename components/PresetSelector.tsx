@@ -29,6 +29,8 @@ const descriptions: Record<EnhancementPreset, string> = {
   retro: "暖色、浮いた黒、粒状感を少し加えます。",
 };
 
+const AI_ACCESS_CODE_REQUIRED = process.env.NEXT_PUBLIC_AI_ACCESS_CODE_REQUIRED === "true";
+
 export function PresetSelector({
   preset,
   enhancementEngine,
@@ -90,15 +92,22 @@ export function PresetSelector({
                 </span>
               </label>
               <label className="block rounded-[8px] border border-zinc-200 bg-white p-3">
-                <span className="text-xs font-bold text-ink">AIアクセスコード</span>
+                <span className="flex items-center justify-between gap-3 text-xs font-bold text-ink">
+                  <span>AIアクセスコード</span>
+                  {AI_ACCESS_CODE_REQUIRED ? <span className="rounded-full bg-ink px-2 py-1 text-[11px] text-white">必須</span> : null}
+                </span>
                 <input
                   type="text"
                   value={aiAccessCode}
                   onChange={(event) => onAiAccessCodeChange(event.target.value)}
-                  placeholder="ベータ版は空欄で実行できます"
+                  placeholder={AI_ACCESS_CODE_REQUIRED ? "購入または発行されたコードを入力" : "ベータ版は空欄で実行できます"}
                   className="mt-2 min-h-11 w-full rounded-[8px] border border-zinc-300 px-3 text-sm"
                 />
-                <span className="mt-2 block text-xs leading-5 text-zinc-600">有料チケット運用に切り替えた場合、購入後に発行されるコードを入力します。</span>
+                <span className="mt-2 block text-xs leading-5 text-zinc-600">
+                  {AI_ACCESS_CODE_REQUIRED
+                    ? "AI高画質化を実行するにはアクセスコードが必要です。未入力の場合は送信前に止めます。"
+                    : "有料チケット運用に切り替えた場合、購入後に発行されるコードを入力します。"}
+                </span>
               </label>
               <PricingLinks />
             </div>

@@ -55,6 +55,8 @@ const initialState: ProcessorState = {
   upscale: true,
 };
 
+const AI_ACCESS_CODE_REQUIRED = process.env.NEXT_PUBLIC_AI_ACCESS_CODE_REQUIRED === "true";
+
 export function useImageProcessor() {
   const sourceCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const correctedCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -134,6 +136,10 @@ export function useImageProcessor() {
       setState((current) => ({ ...current, error: "AI高画質化を実行するには、写真をサーバーへ送信することへの同意が必要です。" }));
       return;
     }
+    if (state.enhancementEngine === "ai" && AI_ACCESS_CODE_REQUIRED && !state.aiAccessCode.trim()) {
+      setState((current) => ({ ...current, error: "AI高画質化を実行するには、AIアクセスコードを入力してください。" }));
+      return;
+    }
     setState((current) => ({
       ...current,
       isProcessing: true,
@@ -159,13 +165,16 @@ export function useImageProcessor() {
         canShare: typeof navigator !== "undefined" && "share" in navigator,
       }));
     } catch (error) {
+      const message = error instanceof Error ? error.message : "";
       setState((current) => ({
         ...current,
         isProcessing: false,
         processingMessage: null,
         error:
           state.enhancementEngine === "ai"
-            ? "AI補正に失敗しました。ローカル補正をお試しください。"
+            ? message.includes("AIアクセスコード")
+              ? message
+              : "AI補正に失敗しました。アクセスコードや通信状態を確認するか、ローカル補正をお試しください。"
             : error instanceof Error
               ? error.message
               : "補正画像の作成に失敗しました。別の画像または出力設定をお試しください。",
