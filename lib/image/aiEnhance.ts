@@ -1,5 +1,6 @@
 export type AIEnhanceOptions = {
   endpoint?: string;
+  accessCode?: string;
   signal?: AbortSignal;
 };
 
@@ -20,6 +21,7 @@ export async function enhanceWithAI(image: Blob, options: AIEnhanceOptions = {})
   // Callers must gate this behind explicit user consent.
   const response = await fetch(endpoint, {
     method: "POST",
+    headers: options.accessCode ? { "x-ai-access-code": options.accessCode } : undefined,
     body: formData,
     signal: options.signal,
   });

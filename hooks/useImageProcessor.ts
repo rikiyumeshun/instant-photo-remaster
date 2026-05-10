@@ -23,6 +23,7 @@ type ProcessorState = {
   preset: EnhancementPreset;
   enhancementEngine: EnhancementEngine;
   aiConsent: boolean;
+  aiAccessCode: string;
   outputMode: OutputMode;
   cropSettings: CropSettings;
   isProcessing: boolean;
@@ -43,6 +44,7 @@ const initialState: ProcessorState = {
   preset: "natural",
   enhancementEngine: "local",
   aiConsent: false,
+  aiAccessCode: "",
   outputMode: "frame",
   cropSettings: DEFAULT_CROP_SETTINGS,
   isProcessing: false,
@@ -140,7 +142,8 @@ export function useImageProcessor() {
     await yieldToBrowser();
     try {
       const target = state.outputMode === "inner" ? cropInnerPhoto(corrected, state.cropSettings) : corrected;
-      const finalCanvas = state.enhancementEngine === "ai" ? await renderAIEnhancedCanvas(target) : renderLocalEnhancedCanvas(target, state.preset, state.upscale);
+      const finalCanvas =
+        state.enhancementEngine === "ai" ? await renderAIEnhancedCanvas(target, state.aiAccessCode) : renderLocalEnhancedCanvas(target, state.preset, state.upscale);
       finalCanvasRef.current = finalCanvas;
       setState((current) => ({
         ...current,
@@ -163,7 +166,7 @@ export function useImageProcessor() {
               : "補正画像の作成に失敗しました。別の画像または出力設定をお試しください。",
       }));
     }
-  }, [state.aiConsent, state.cropSettings, state.enhancementEngine, state.outputMode, state.preset, state.upscale]);
+  }, [state.aiAccessCode, state.aiConsent, state.cropSettings, state.enhancementEngine, state.outputMode, state.preset, state.upscale]);
 
   const saveFinal = useCallback(async () => {
     const canvas = finalCanvasRef.current;
@@ -210,6 +213,7 @@ export function useImageProcessor() {
       setEnhancementEngine: (enhancementEngine: EnhancementEngine) =>
         setState((current) => ({ ...current, enhancementEngine, aiConsent: enhancementEngine === "local" ? false : current.aiConsent, finalUrl: null, comparisonUrl: null })),
       setAiConsent: (aiConsent: boolean) => setState((current) => ({ ...current, aiConsent, finalUrl: null, comparisonUrl: null })),
+      setAiAccessCode: (aiAccessCode: string) => setState((current) => ({ ...current, aiAccessCode, finalUrl: null, comparisonUrl: null })),
       setPreset: (preset: EnhancementPreset) => setState((current) => ({ ...current, preset, finalUrl: null, comparisonUrl: null })),
       setOutputMode: (outputMode: OutputMode) => setState((current) => ({ ...current, outputMode, finalUrl: null, comparisonUrl: null })),
       setCropSettings: (cropSettings: CropSettings) => setState((current) => ({ ...current, cropSettings, finalUrl: null, comparisonUrl: null })),
@@ -248,9 +252,9 @@ function renderLocalEnhancedCanvas(target: HTMLCanvasElement, preset: Enhancemen
   return upscale ? upscaleImage(enhanced, 2) : enhanced;
 }
 
-async function renderAIEnhancedCanvas(target: HTMLCanvasElement): Promise<HTMLCanvasElement> {
+async function renderAIEnhancedCanvas(target: HTMLCanvasElement, accessCode: string): Promise<HTMLCanvasElement> {
   const blob = await canvasToBlob(target, "image/jpeg", 0.92);
-  const result = await enhanceWithAI(blob);
+  const result = await enhanceWithAI(blob, { accessCode: accessCode.trim() || undefined });
   return blobToCanvas(result.blob);
 }
 

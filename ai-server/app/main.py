@@ -1,7 +1,7 @@
 import os
 from io import BytesIO
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from PIL import Image, UnidentifiedImageError
@@ -20,15 +20,28 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
     allow_credentials=False,
-    allow_methods=["POST"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
 processor = LocalDummyProcessor()
+allowed_access_codes = {
+    code.strip()
+    for code in os.getenv("AI_ACCESS_CODES", "").split(",")
+    if code.strip()
+}
+
+
+@app.get("/health")
+async def health() -> dict[str, str]:
+    return {"status": "ok", "processor": processor.name}
 
 
 @app.post("/enhance")
-async def enhance(image: UploadFile = File(...)) -> Response:
+async def enhance(image: UploadFile = File(...), x_ai_access_code: str | None = Header(default=None)) -> Response:
+    if allowed_access_codes and (not x_ai_access_code or x_ai_access_code not in allowed_access_codes):
+        raise HTTPException(status_code=402, detail="A valid AI access code is required.")
+
     if image.content_type not in {"image/jpeg", "image/png", "image/webp"}:
         raise HTTPException(status_code=400, detail="JPEG, PNG, or WebP image is required.")
 

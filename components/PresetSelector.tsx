@@ -7,6 +7,7 @@ type Props = {
   preset: EnhancementPreset;
   enhancementEngine: EnhancementEngine;
   aiConsent: boolean;
+  aiAccessCode: string;
   outputMode: OutputMode;
   cropSettings: CropSettings;
   upscale: boolean;
@@ -14,6 +15,7 @@ type Props = {
   onPresetChange: (preset: EnhancementPreset) => void;
   onEnhancementEngineChange: (engine: EnhancementEngine) => void;
   onAiConsentChange: (consent: boolean) => void;
+  onAiAccessCodeChange: (code: string) => void;
   onOutputModeChange: (mode: OutputMode) => void;
   onCropSettingsChange: (settings: CropSettings) => void;
   onUpscaleChange: (upscale: boolean) => void;
@@ -31,6 +33,7 @@ export function PresetSelector({
   preset,
   enhancementEngine,
   aiConsent,
+  aiAccessCode,
   outputMode,
   cropSettings,
   upscale,
@@ -38,6 +41,7 @@ export function PresetSelector({
   onPresetChange,
   onEnhancementEngineChange,
   onAiConsentChange,
+  onAiAccessCodeChange,
   onOutputModeChange,
   onCropSettingsChange,
   onUpscaleChange,
@@ -68,12 +72,26 @@ export function PresetSelector({
             </button>
           </div>
           {enhancementEngine === "ai" ? (
-            <label className="mt-3 flex items-start gap-3 rounded-[8px] border border-amber-200 bg-amber-50 p-3">
-              <input type="checkbox" checked={aiConsent} onChange={(event) => onAiConsentChange(event.target.checked)} className="mt-1 h-5 w-5 shrink-0 accent-ink" />
-              <span className="text-xs font-semibold leading-5 text-amber-900">
-                AI高画質化では、補正のために写真をサーバーへ送信します。処理後、画像はサーバーに保存しない設計です。この内容に同意して実行します。
-              </span>
-            </label>
+            <div className="mt-3 space-y-3">
+              <label className="flex items-start gap-3 rounded-[8px] border border-amber-200 bg-amber-50 p-3">
+                <input type="checkbox" checked={aiConsent} onChange={(event) => onAiConsentChange(event.target.checked)} className="mt-1 h-5 w-5 shrink-0 accent-ink" />
+                <span className="text-xs font-semibold leading-5 text-amber-900">
+                  AI高画質化では、補正のために写真をサーバーへ送信します。処理後、画像はサーバーに保存しない設計です。この内容に同意して実行します。
+                </span>
+              </label>
+              <label className="block rounded-[8px] border border-zinc-200 bg-white p-3">
+                <span className="text-xs font-bold text-ink">AIアクセスコード</span>
+                <input
+                  type="text"
+                  value={aiAccessCode}
+                  onChange={(event) => onAiAccessCodeChange(event.target.value)}
+                  placeholder="ベータ版は空欄で実行できます"
+                  className="mt-2 min-h-11 w-full rounded-[8px] border border-zinc-300 px-3 text-sm"
+                />
+                <span className="mt-2 block text-xs leading-5 text-zinc-600">有料チケット運用に切り替えた場合、購入後に発行されるコードを入力します。</span>
+              </label>
+              <PricingLinks />
+            </div>
           ) : null}
         </div>
         <div className="mt-4 grid gap-3">
@@ -122,6 +140,35 @@ export function PresetSelector({
         </button>
       </div>
     </section>
+  );
+}
+
+function PricingLinks() {
+  const links = [
+    { label: "10枚パック", href: process.env.NEXT_PUBLIC_STRIPE_PACK_10_URL },
+    { label: "30枚パック", href: process.env.NEXT_PUBLIC_STRIPE_PACK_30_URL },
+    { label: "100枚パック", href: process.env.NEXT_PUBLIC_STRIPE_PACK_100_URL },
+  ].filter((link): link is { label: string; href: string } => Boolean(link.href));
+
+  if (links.length === 0) {
+    return (
+      <div className="rounded-[8px] border border-zinc-200 bg-white p-3 text-xs leading-5 text-zinc-600">
+        AIチケット販売は準備中です。Stripe Payment Links を設定すると、ここに購入ボタンが表示されます。
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-[8px] border border-zinc-200 bg-white p-3">
+      <p className="text-xs font-bold text-ink">AIチケット</p>
+      <div className="mt-2 grid gap-2">
+        {links.map((link) => (
+          <a key={link.label} href={link.href} target="_blank" rel="noreferrer" className="min-h-10 rounded-[8px] bg-ink px-3 py-2 text-center text-sm font-bold text-white">
+            {link.label}を購入
+          </a>
+        ))}
+      </div>
+    </div>
   );
 }
 

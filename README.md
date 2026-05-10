@@ -124,6 +124,20 @@ GitHub Pagesのビルドでは `NEXT_PUBLIC_AI_ENHANCE_ENDPOINT` にこのURLを
 
 Renderの無料Web Serviceは検証・趣味用途向けです。一定時間アクセスがないとスリープするため、初回AI補正は起動待ちで遅くなることがあります。
 
+## 課金PoC
+
+AI高画質化は、最初は「無料ベータ」または「手動発行のアクセスコード」で運用できます。
+
+- Stripe Payment Links を作成します。
+- GitHub repository variables に以下を設定します。
+  - `STRIPE_PACK_10_URL`
+  - `STRIPE_PACK_30_URL`
+  - `STRIPE_PACK_100_URL`
+- GitHub Pagesを再ビルドすると、AI高画質化UIに購入ボタンが表示されます。
+- Renderの環境変数 `AI_ACCESS_CODES` にカンマ区切りでコードを設定すると、AIサーバーはそのコードを持つリクエストだけ受け付けます。
+
+このPoCはDBなしの簡易ゲートです。チケット残数の自動消費、ユーザーアカウント、Stripe Webhookによる自動付与は未実装です。本番課金では、Stripe Checkout + Webhook + DBで残回数を管理してください。
+
 ## AIサーバー起動方法 macOS / Linux
 
 ```bash

@@ -44,6 +44,7 @@ export default function Home() {
           preset={state.preset}
           enhancementEngine={state.enhancementEngine}
           aiConsent={state.aiConsent}
+          aiAccessCode={state.aiAccessCode}
           outputMode={state.outputMode}
           cropSettings={state.cropSettings}
           upscale={state.upscale}
@@ -51,6 +52,7 @@ export default function Home() {
           onPresetChange={actions.setPreset}
           onEnhancementEngineChange={actions.setEnhancementEngine}
           onAiConsentChange={actions.setAiConsent}
+          onAiAccessCodeChange={actions.setAiAccessCode}
           onOutputModeChange={actions.setOutputMode}
           onCropSettingsChange={actions.setCropSettings}
           onUpscaleChange={actions.setUpscale}

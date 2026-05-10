@@ -33,6 +33,9 @@ jobs:
         env:
           GITHUB_PAGES: "true"
           NEXT_PUBLIC_AI_ENHANCE_ENDPOINT: "https://instant-photo-remaster-ai.onrender.com/enhance"
+          NEXT_PUBLIC_STRIPE_PACK_10_URL: ${{ vars.STRIPE_PACK_10_URL }}
+          NEXT_PUBLIC_STRIPE_PACK_30_URL: ${{ vars.STRIPE_PACK_30_URL }}
+          NEXT_PUBLIC_STRIPE_PACK_100_URL: ${{ vars.STRIPE_PACK_100_URL }}
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
