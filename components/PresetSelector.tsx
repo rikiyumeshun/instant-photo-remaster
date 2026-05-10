@@ -23,6 +23,9 @@ type Props = {
   onCropSettingsChange: (settings: CropSettings) => void;
   onUpscaleChange: (upscale: boolean) => void;
   onRender: () => void;
+  onRetry: () => void;
+  onUseLocal: () => void;
+  onUseDeviceHigh: () => void;
 };
 
 const descriptions: Record<EnhancementPreset, string> = {
@@ -60,6 +63,9 @@ export function PresetSelector({
   onCropSettingsChange,
   onUpscaleChange,
   onRender,
+  onRetry,
+  onUseLocal,
+  onUseDeviceHigh,
 }: Props) {
   return (
     <section className="mx-auto max-w-xl px-5">
@@ -149,7 +155,31 @@ export function PresetSelector({
             </div>
           ) : null}
           {errorMessage ? (
-            <div className="mt-3 rounded-[8px] border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold leading-6 text-red-700">{errorMessage}</div>
+            <div className="mt-3 rounded-[8px] border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold leading-6 text-red-700">
+              <p>{errorMessage}</p>
+              {enhancementEngine === "ai" ? (
+                <div className="mt-3 grid gap-2">
+                  <button type="button" onClick={onUseDeviceHigh} className="min-h-10 rounded-[8px] bg-ink px-3 py-2 text-sm font-bold text-white">
+                    スマホ内AI風補正に切り替え
+                  </button>
+                  <button type="button" onClick={onUseLocal} className="min-h-10 rounded-[8px] border border-red-200 bg-white px-3 py-2 text-sm font-bold text-red-700">
+                    ローカル高速補正に切り替え
+                  </button>
+                  <button type="button" onClick={onRetry} className="min-h-10 rounded-[8px] border border-red-200 bg-white px-3 py-2 text-sm font-bold text-red-700">
+                    30秒ほど待って再試行
+                  </button>
+                </div>
+              ) : enhancementEngine === "device-ai" ? (
+                <div className="mt-3 grid gap-2">
+                  <button type="button" onClick={onUseDeviceHigh} className="min-h-10 rounded-[8px] bg-ink px-3 py-2 text-sm font-bold text-white">
+                    高品質で再試行
+                  </button>
+                  <button type="button" onClick={onUseLocal} className="min-h-10 rounded-[8px] border border-red-200 bg-white px-3 py-2 text-sm font-bold text-red-700">
+                    ローカル高速補正に切り替え
+                  </button>
+                </div>
+              ) : null}
+            </div>
           ) : null}
         </div>
         <div className="mt-4 grid gap-3">

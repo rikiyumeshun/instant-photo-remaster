@@ -13,6 +13,14 @@ export type DeviceEnhanceQuality = "standard" | "high" | "max";
 
 export type ErrorScope = "load" | "detect" | "perspective" | "enhance-local" | "enhance-device" | "enhance-ai" | "save" | "share";
 
+export type NoticeKind = "success" | "error" | "warning" | "info";
+
+export type Notice = {
+  id: number;
+  kind: NoticeKind;
+  message: string;
+};
+
 export type OutputMode = "frame" | "inner";
 
 export type CropSettings = {

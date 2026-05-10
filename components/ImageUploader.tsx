@@ -37,9 +37,9 @@ export function ImageUploader({ onSelect, disabled }: Props) {
             画像をアップロード
           </button>
         </div>
-        <p className="mt-3 text-sm leading-6 text-zinc-600">JPEG、PNG、WebPに対応。大きな画像はブラウザ内で縮小して処理します。</p>
-        <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(event) => handleChange(event.target.files)} />
-        <input ref={uploadRef} type="file" accept="image/*" className="hidden" onChange={(event) => handleChange(event.target.files)} />
+        <p className="mt-3 text-sm leading-6 text-zinc-600">JPEG、PNG、WebP、HEICに対応。20MBを超える画像は読み込みに時間がかかる場合があります。</p>
+        <input ref={cameraRef} type="file" accept="image/*,.heic,.heif" capture="environment" className="hidden" onChange={(event) => handleChange(event.target.files)} />
+        <input ref={uploadRef} type="file" accept="image/*,.heic,.heif" className="hidden" onChange={(event) => handleChange(event.target.files)} />
       </div>
     </section>
   );

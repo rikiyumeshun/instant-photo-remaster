@@ -1,34 +1,52 @@
 import type { ProcessedImage } from "./types";
 
 const MAX_PROCESSING_EDGE = 2400;
+export const MAX_UPLOAD_WARNING_BYTES = 20 * 1024 * 1024;
+const SUPPORTED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]);
 
 export async function loadImageFile(file: File): Promise<HTMLImageElement> {
-  if (!file.type.startsWith("image/")) {
-    throw new Error("画像ファイルを選択してください。");
+  if (!isSupportedImageFile(file)) {
+    throw new Error("対応していない画像形式です。JPEG、PNG、WebP、HEICをお試しください。");
   }
 
+  let url: string | null = null;
   try {
-    const url = await readFileAsDataUrl(file);
+    const blob = isHeicFile(file) ? await convertHeicToJpeg(file) : file;
+    url = URL.createObjectURL(blob);
     const image = new Image();
     image.decoding = "async";
     image.src = url;
     await image.decode();
     return image;
-  } catch {
-    throw new Error("画像を読み込めませんでした。JPEG、PNG、WebPをお試しください。");
+  } catch (error) {
+    if (isHeicFile(file)) {
+      throw new Error("HEIC画像を変換できませんでした。iPhone側でJPEGとして共有するか、JPEG/PNGに変換してからお試しください。");
+    }
+    if (error instanceof Error) throw error;
+    throw new Error("画像を読み込めませんでした。JPEG、PNG、WebP、HEICをお試しください。");
+  } finally {
+    if (url) URL.revokeObjectURL(url);
   }
 }
 
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") resolve(reader.result);
-      else reject(new Error("画像を読み込めませんでした。"));
-    };
-    reader.onerror = () => reject(new Error("画像を読み込めませんでした。"));
-    reader.readAsDataURL(file);
-  });
+function isSupportedImageFile(file: File): boolean {
+  if (isHeicFile(file)) return true;
+  return SUPPORTED_IMAGE_TYPES.has(file.type);
+}
+
+function isHeicFile(file: File): boolean {
+  const name = file.name.toLowerCase();
+  return file.type === "image/heic" || file.type === "image/heif" || name.endsWith(".heic") || name.endsWith(".heif");
+}
+
+async function convertHeicToJpeg(file: File): Promise<Blob> {
+  try {
+    const { default: heic2any } = await import("heic2any");
+    const result = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.92 });
+    return Array.isArray(result) ? result[0] : result;
+  } catch {
+    throw new Error("HEIC画像を変換できませんでした。");
+  }
 }
 
 export function imageToCanvas(image: HTMLImageElement): HTMLCanvasElement {

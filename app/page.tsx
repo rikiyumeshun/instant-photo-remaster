@@ -1,6 +1,7 @@
 "use client";
 
 import { AppHeader } from "@/components/AppHeader";
+import { AppToast } from "@/components/AppToast";
 import { BeforeAfterSlider } from "@/components/BeforeAfterSlider";
 import { CornerEditor } from "@/components/CornerEditor";
 import { ExportPanel } from "@/components/ExportPanel";
@@ -64,6 +65,12 @@ export default function Home() {
           onCropSettingsChange={actions.setCropSettings}
           onUpscaleChange={actions.setUpscale}
           onRender={actions.renderFinal}
+          onRetry={actions.renderFinal}
+          onUseLocal={() => actions.setEnhancementEngine("local")}
+          onUseDeviceHigh={() => {
+            actions.setEnhancementEngine("device-ai");
+            actions.setDeviceEnhanceQuality("high");
+          }}
         />
         <BeforeAfterSlider before={state.correctedUrl} after={state.finalUrl} />
         <PhotoPreview src={state.finalUrl} label="保存プレビュー" emptyText="補正プレビューを作成すると保存用画像が表示されます。" />
@@ -78,9 +85,15 @@ export default function Home() {
       </div>
       {state.isProcessing ? (
         <div className="fixed inset-x-4 bottom-4 z-20 mx-auto max-w-xl rounded-[8px] bg-ink px-4 py-3 text-center text-sm font-bold text-white shadow-soft">
-          {state.processingMessage ?? "画像を処理しています..."}
+          <p>{state.processingMessage ?? "画像を処理しています..."}</p>
+          {state.canCancel ? (
+            <button type="button" onClick={actions.cancelProcessing} className="mt-2 min-h-10 rounded-[8px] border border-white/40 px-4 text-sm font-bold text-white">
+              キャンセル
+            </button>
+          ) : null}
         </div>
       ) : null}
+      <AppToast notice={state.notice} offset={state.isProcessing} onClose={actions.clearNotice} />
     </main>
   );
 }
