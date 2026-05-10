@@ -19,16 +19,36 @@ export async function enhanceWithAI(image: Blob, options: AIEnhanceOptions = {})
 
   // This sends the user's photo to the configured AI enhancement server.
   // Callers must gate this behind explicit user consent.
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: options.accessCode ? { "x-ai-access-code": options.accessCode } : undefined,
-    body: formData,
-    signal: options.signal,
-  });
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: options.accessCode ? { "x-ai-access-code": options.accessCode } : undefined,
+      body: formData,
+      signal: options.signal,
+    });
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw new Error("AIサーバーの起動または補正がタイムアウトしました。少し待って再実行するか、ローカル補正を使ってください。");
+    }
+    throw new Error("AIサーバーに接続できませんでした。少し待って再実行するか、ローカル補正を使ってください。");
+  }
 
   if (!response.ok) {
     if (response.status === 401 || response.status === 402 || response.status === 403) {
-      throw new Error("AIアクセスコードが正しくないか、利用できないコードです。コードを確認してください。");
+      throw new Error("AIアクセスコードが正しくありません。コードを確認してください。");
+    }
+    if (response.status === 413) {
+      throw new Error("画像が大きすぎます。少し縮小してからお試しください。");
+    }
+    if (response.status === 400 || response.status === 415) {
+      throw new Error("AI補正に対応していない画像形式、または読み込めない画像です。JPEG、PNG、WebPをお試しください。");
+    }
+    if (response.status === 501) {
+      throw new Error("AI高画質化サーバーが未設定です。ローカル補正をお試しください。");
+    }
+    if (response.status === 502 || response.status === 503 || response.status === 504) {
+      throw new Error("AIサーバーが起動中、または一時的に応答できません。少し待って再実行するか、ローカル補正を使ってください。");
     }
 
     let message = "AI補正サーバーでエラーが発生しました。";
@@ -50,4 +70,8 @@ export async function enhanceWithAI(image: Blob, options: AIEnhanceOptions = {})
     blob: await response.blob(),
     modelName: response.headers.get("x-ai-model") ?? undefined,
   };
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
 }

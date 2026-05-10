@@ -31,6 +31,11 @@ allowed_access_codes = {
     if code.strip()
 }
 
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+MAX_IMAGE_PIXELS = 16_000_000
+MAX_IMAGE_EDGE = 5000
+Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
+
 
 @app.get("/health")
 async def health() -> dict[str, str]:
@@ -47,7 +52,14 @@ async def enhance(image: UploadFile = File(...), x_ai_access_code: str | None = 
 
     try:
         raw = await image.read()
+        if len(raw) > MAX_UPLOAD_BYTES:
+            return JSONResponse(status_code=413, content={"error": "Image file is too large. Maximum upload size is 10MB."})
+
         source = Image.open(BytesIO(raw))
+        width, height = source.size
+        if width * height > MAX_IMAGE_PIXELS or max(width, height) > MAX_IMAGE_EDGE:
+            return JSONResponse(status_code=413, content={"error": "Image dimensions are too large. Maximum size is 16MP and 5000px on the longest edge."})
+
         source.load()
         result = processor.process(source)
     except UnidentifiedImageError as exc:

@@ -12,6 +12,7 @@ type Props = {
   outputMode: OutputMode;
   cropSettings: CropSettings;
   upscale: boolean;
+  errorMessage?: string | null;
   disabled?: boolean;
   onPresetChange: (preset: EnhancementPreset) => void;
   onEnhancementEngineChange: (engine: EnhancementEngine) => void;
@@ -48,6 +49,7 @@ export function PresetSelector({
   outputMode,
   cropSettings,
   upscale,
+  errorMessage,
   disabled,
   onPresetChange,
   onEnhancementEngineChange,
@@ -145,6 +147,9 @@ export function PresetSelector({
               </div>
               <p className="mt-2 text-xs leading-5 text-zinc-600">スマホ内AI風補正では写真を外部送信しません。最高品質は端末によって少し時間がかかります。</p>
             </div>
+          ) : null}
+          {errorMessage ? (
+            <div className="mt-3 rounded-[8px] border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold leading-6 text-red-700">{errorMessage}</div>
           ) : null}
         </div>
         <div className="mt-4 grid gap-3">

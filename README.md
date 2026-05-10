@@ -110,6 +110,17 @@ GitHub Pages Frontend -> FastAPI AI server on Render -> Frontend
 
 サーバー側では画像をディスクに保存せず、メモリ上で処理します。現在のAIサーバーはPillowによるダミー補正です。2倍リサイズ、軽いコントラスト、彩度、シャープ処理を行います。
 
+AI補正リクエストには120秒のタイムアウトを設定しています。Render無料枠は一定時間アクセスがないとスリープするため、初回は起動待ちで最大1分ほどかかる場合があります。タイムアウト、接続失敗、アクセスコード違い、画像サイズ超過、サーバー内部エラーはUI上で分けて表示します。
+
+AIサーバー側の入力制限:
+
+- アップロード最大サイズ: 10MB
+- 最大画素数: 16MP
+- 最大辺: 5000px
+- 対応形式: JPEG / PNG / WebP
+
+失敗した場合は、少し待って再実行する、アクセスコードを確認する、画像を縮小する、またはローカル高速補正 / スマホ内AI風補正を使ってください。
+
 AI超解像は `lib/image/upscale.ts` の `upscaleImage()`、または `lib/image/aiEnhance.ts` の `enhanceWithAI()` / `ai-server/app/processors` を差し替える形で追加できます。
 
 スマホ完結の本格AIを入れる場合は、`lib/image/deviceEnhance.ts` の `enhanceOnDevice()` を WebGPU / WebNN / ONNX Runtime Web などの推論処理へ置き換えるのが差し込みポイントです。ただし、モバイルSafari対応、モデルサイズ、初回ロード時間、メモリ使用量、商用ライセンス確認が課題になります。

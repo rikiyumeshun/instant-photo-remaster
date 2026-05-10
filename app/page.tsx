@@ -12,6 +12,9 @@ import { useImageProcessor } from "@/hooks/useImageProcessor";
 
 export default function Home() {
   const { state, actions } = useImageProcessor();
+  const enhanceError =
+    state.errorScope === "enhance-local" || state.errorScope === "enhance-device" || state.errorScope === "enhance-ai" ? state.error : null;
+  const exportError = state.errorScope === "save" || state.errorScope === "share" ? state.error : null;
 
   return (
     <main className="min-h-screen pb-8">
@@ -38,6 +41,7 @@ export default function Home() {
           debug={state.detection?.debug}
           imageWidth={state.sourceSize?.width}
           imageHeight={state.sourceSize?.height}
+          errorMessage={state.errorScope === "perspective" || state.errorScope === "detect" ? state.error : null}
         />
         <PhotoPreview src={state.correctedUrl} label="台形補正後" emptyText="四隅を合わせて台形補正すると表示されます。" />
         <PresetSelector
@@ -49,6 +53,7 @@ export default function Home() {
           outputMode={state.outputMode}
           cropSettings={state.cropSettings}
           upscale={state.upscale}
+          errorMessage={enhanceError}
           disabled={!state.correctedUrl || state.isProcessing}
           onPresetChange={actions.setPreset}
           onEnhancementEngineChange={actions.setEnhancementEngine}
@@ -68,6 +73,7 @@ export default function Home() {
           onSave={actions.saveFinal}
           onSaveComparison={actions.saveComparison}
           onShare={actions.shareFinal}
+          errorMessage={exportError}
         />
       </div>
       {state.isProcessing ? (

@@ -11,6 +11,8 @@ export type EnhancementEngine = "local" | "device-ai" | "ai";
 
 export type DeviceEnhanceQuality = "standard" | "high" | "max";
 
+export type ErrorScope = "load" | "detect" | "perspective" | "enhance-local" | "enhance-device" | "enhance-ai" | "save" | "share";
+
 export type OutputMode = "frame" | "inner";
 
 export type CropSettings = {

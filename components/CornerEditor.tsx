@@ -16,6 +16,7 @@ type Props = {
   debug?: DetectionResult["debug"];
   imageWidth?: number;
   imageHeight?: number;
+  errorMessage?: string | null;
 };
 
 const cornerLabels = ["左上", "右上", "右下", "左下"] as const;
@@ -33,6 +34,7 @@ export function CornerEditor({
   debug,
   imageWidth = 1,
   imageHeight = 1,
+  errorMessage,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [active, setActive] = useState(0);
@@ -93,6 +95,8 @@ export function CornerEditor({
             <span className="mt-1 block text-xs leading-5 text-amber-700">拡大して調整を押すと、端の丸を合わせやすくなります。</span>
           </div>
         ) : null}
+
+        {errorMessage ? <InlineAlert message={errorMessage} /> : null}
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <div className="grid grid-cols-4 gap-1 rounded-[8px] bg-zinc-100 p-1">
@@ -265,6 +269,10 @@ export function CornerEditor({
       </div>
     </section>
   );
+}
+
+function InlineAlert({ message }: { message: string }) {
+  return <div className="mt-3 rounded-[8px] border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold leading-6 text-red-700">{message}</div>;
 }
 
 function NudgeButton({ label, onClick, disabled }: { label: string; onClick: () => void; disabled?: boolean }) {
