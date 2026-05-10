@@ -1,11 +1,12 @@
 "use client";
 
-import type { CropSettings, EnhancementEngine, EnhancementPreset, OutputMode } from "@/lib/image/types";
+import type { CropSettings, DeviceEnhanceQuality, EnhancementEngine, EnhancementPreset, OutputMode } from "@/lib/image/types";
 import { PRESET_LABELS } from "@/lib/image/types";
 
 type Props = {
   preset: EnhancementPreset;
   enhancementEngine: EnhancementEngine;
+  deviceEnhanceQuality: DeviceEnhanceQuality;
   aiConsent: boolean;
   aiAccessCode: string;
   outputMode: OutputMode;
@@ -14,6 +15,7 @@ type Props = {
   disabled?: boolean;
   onPresetChange: (preset: EnhancementPreset) => void;
   onEnhancementEngineChange: (engine: EnhancementEngine) => void;
+  onDeviceEnhanceQualityChange: (quality: DeviceEnhanceQuality) => void;
   onAiConsentChange: (consent: boolean) => void;
   onAiAccessCodeChange: (code: string) => void;
   onOutputModeChange: (mode: OutputMode) => void;
@@ -31,9 +33,16 @@ const descriptions: Record<EnhancementPreset, string> = {
 
 const AI_ACCESS_CODE_REQUIRED = process.env.NEXT_PUBLIC_AI_ACCESS_CODE_REQUIRED === "true";
 
+const qualityOptions: Array<{ key: DeviceEnhanceQuality; label: string; badge: string; description: string }> = [
+  { key: "standard", label: "標準", badge: "高速", description: "軽めの補正。古いスマホ向けです。" },
+  { key: "high", label: "高品質", badge: "おすすめ", description: "解像感と自然さのバランス。通常はこれ。" },
+  { key: "max", label: "最高品質", badge: "画質優先", description: "少し時間をかけ、ていねいに拡大・ノイズ低減・シャープ補正します。" },
+];
+
 export function PresetSelector({
   preset,
   enhancementEngine,
+  deviceEnhanceQuality,
   aiConsent,
   aiAccessCode,
   outputMode,
@@ -42,6 +51,7 @@ export function PresetSelector({
   disabled,
   onPresetChange,
   onEnhancementEngineChange,
+  onDeviceEnhanceQualityChange,
   onAiConsentChange,
   onAiAccessCodeChange,
   onOutputModeChange,
@@ -62,7 +72,7 @@ export function PresetSelector({
               className={`rounded-[8px] border p-3 text-left ${enhancementEngine === "local" ? "border-ink bg-white" : "border-zinc-200 bg-white"}`}
             >
               <span className="block text-sm font-bold text-ink">ローカル高速補正</span>
-              <span className="mt-1 block text-xs leading-5 text-zinc-600">ブラウザ内で処理します。写真は外部サーバーへ送信されません。高速ですが、AI復元ではありません。</span>
+              <span className="mt-1 block text-xs leading-5 text-zinc-600">スマホ内で処理します。写真は外部サーバーへ送信されません。AI風の見た目改善で、本物AI復元ではありません。</span>
             </button>
             <button
               type="button"
@@ -110,6 +120,30 @@ export function PresetSelector({
                 </span>
               </label>
               <PricingLinks />
+            </div>
+          ) : null}
+          {enhancementEngine === "device-ai" ? (
+            <div className="mt-3 rounded-[8px] border border-sky-100 bg-sky-50 p-3">
+              <p className="text-xs font-bold text-ink">スマホ内AI風補正の品質</p>
+              <div className="mt-2 grid gap-2">
+                {qualityOptions.map((option) => (
+                  <button
+                    key={option.key}
+                    type="button"
+                    onClick={() => onDeviceEnhanceQualityChange(option.key)}
+                    className={`rounded-[8px] border bg-white p-3 text-left ${
+                      deviceEnhanceQuality === option.key ? "border-ink" : "border-zinc-200"
+                    }`}
+                  >
+                    <span className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-bold text-ink">{option.label}</span>
+                      <span className="rounded-full bg-zinc-100 px-2 py-1 text-[11px] font-bold text-zinc-700">{option.badge}</span>
+                    </span>
+                    <span className="mt-1 block text-xs leading-5 text-zinc-600">{option.description}</span>
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-xs leading-5 text-zinc-600">スマホ内AI風補正では写真を外部送信しません。最高品質は端末によって少し時間がかかります。</p>
             </div>
           ) : null}
         </div>

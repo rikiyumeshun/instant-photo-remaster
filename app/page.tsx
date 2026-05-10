@@ -43,6 +43,7 @@ export default function Home() {
         <PresetSelector
           preset={state.preset}
           enhancementEngine={state.enhancementEngine}
+          deviceEnhanceQuality={state.deviceEnhanceQuality}
           aiConsent={state.aiConsent}
           aiAccessCode={state.aiAccessCode}
           outputMode={state.outputMode}
@@ -51,6 +52,7 @@ export default function Home() {
           disabled={!state.correctedUrl || state.isProcessing}
           onPresetChange={actions.setPreset}
           onEnhancementEngineChange={actions.setEnhancementEngine}
+          onDeviceEnhanceQualityChange={actions.setDeviceEnhanceQuality}
           onAiConsentChange={actions.setAiConsent}
           onAiAccessCodeChange={actions.setAiAccessCode}
           onOutputModeChange={actions.setOutputMode}

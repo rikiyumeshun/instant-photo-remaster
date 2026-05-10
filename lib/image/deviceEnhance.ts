@@ -1,9 +1,10 @@
-import type { EnhancementPreset } from "./types";
+import type { DeviceEnhanceQuality, EnhancementPreset } from "./types";
 import { applyEnhancementPreset } from "./enhance";
 import { getCanvasContext } from "./canvas";
 
 type DeviceEnhanceOptions = {
   preset: EnhancementPreset;
+  quality?: DeviceEnhanceQuality;
   scale?: number;
 };
 
@@ -20,14 +21,25 @@ const CONFIGS: Record<EnhancementPreset, DeviceConfig> = {
   retro: { denoise: 0.28, detail: 0.22, microContrast: 0.04 },
 };
 
-const MAX_DEVICE_OUTPUT_EDGE = 3200;
+const QUALITY_MULTIPLIERS: Record<DeviceEnhanceQuality, DeviceConfig> = {
+  standard: { denoise: 0.78, detail: 0.76, microContrast: 0.82 },
+  high: { denoise: 1, detail: 1, microContrast: 1 },
+  max: { denoise: 1.18, detail: 1.24, microContrast: 0.88 },
+};
+
+const MAX_OUTPUT_EDGE: Record<DeviceEnhanceQuality, number> = {
+  standard: 2600,
+  high: 3200,
+  max: 3600,
+};
 
 // Browser-only enhancement path. It does not send images to a server and can later
 // be replaced by a WebGPU / ONNX super-resolution model behind the same API.
 export async function enhanceOnDevice(source: HTMLCanvasElement, options: DeviceEnhanceOptions): Promise<HTMLCanvasElement> {
-  const config = CONFIGS[options.preset];
+  const quality = options.quality ?? "high";
+  const config = multiplyConfig(CONFIGS[options.preset], QUALITY_MULTIPLIERS[quality]);
   const requestedScale = options.scale ?? 2;
-  const scale = Math.min(requestedScale, MAX_DEVICE_OUTPUT_EDGE / Math.max(source.width, source.height));
+  const scale = Math.min(requestedScale, MAX_OUTPUT_EDGE[quality] / Math.max(source.width, source.height));
   const toned = applyEnhancementPreset(source, options.preset);
   await yieldToBrowser();
 
@@ -37,8 +49,21 @@ export async function enhanceOnDevice(source: HTMLCanvasElement, options: Device
   const upscaled = upscaleProgressive(denoised, scale);
   await yieldToBrowser();
 
+  if (quality === "max") {
+    edgeAwareDenoise(upscaled, config.denoise * 0.34);
+    await yieldToBrowser();
+  }
+
   enhanceLocalDetail(upscaled, config);
   return upscaled;
+}
+
+function multiplyConfig(base: DeviceConfig, multiplier: DeviceConfig): DeviceConfig {
+  return {
+    denoise: base.denoise * multiplier.denoise,
+    detail: base.detail * multiplier.detail,
+    microContrast: base.microContrast * multiplier.microContrast,
+  };
 }
 
 function edgeAwareDenoise(source: HTMLCanvasElement, amount: number): HTMLCanvasElement {
