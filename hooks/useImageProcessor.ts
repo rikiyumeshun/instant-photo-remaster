@@ -4,6 +4,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { imageToCanvas, loadImageFile, resizeForProcessing } from "@/lib/image/canvas";
 import { cropInnerPhoto } from "@/lib/image/crop";
 import { detectInstantPhotoFrame } from "@/lib/image/detectFrame";
+import { enhanceOnDevice } from "@/lib/image/deviceEnhance";
 import { applyEnhancementPreset } from "@/lib/image/enhance";
 import { enhanceWithAI } from "@/lib/image/aiEnhance";
 import { canvasToBlob, exportImage, makeExportFileName, shareImage } from "@/lib/image/export";
@@ -136,14 +137,18 @@ export function useImageProcessor() {
     setState((current) => ({
       ...current,
       isProcessing: true,
-      processingMessage: state.enhancementEngine === "ai" ? "AI補正中です。少し時間がかかります..." : "補正画像を作成しています...",
+      processingMessage:
+        state.enhancementEngine === "ai"
+          ? "AI補正中です。少し時間がかかります..."
+          : state.enhancementEngine === "device-ai"
+            ? "スマホ内で高画質化しています..."
+            : "補正画像を作成しています...",
       error: null,
     }));
     await yieldToBrowser();
     try {
       const target = state.outputMode === "inner" ? cropInnerPhoto(corrected, state.cropSettings) : corrected;
-      const finalCanvas =
-        state.enhancementEngine === "ai" ? await renderAIEnhancedCanvas(target, state.aiAccessCode) : renderLocalEnhancedCanvas(target, state.preset, state.upscale);
+      const finalCanvas = await renderEnhancedCanvas(target, state.enhancementEngine, state.preset, state.upscale, state.aiAccessCode);
       finalCanvasRef.current = finalCanvas;
       setState((current) => ({
         ...current,
@@ -211,7 +216,7 @@ export function useImageProcessor() {
       saveComparison,
       shareFinal,
       setEnhancementEngine: (enhancementEngine: EnhancementEngine) =>
-        setState((current) => ({ ...current, enhancementEngine, aiConsent: enhancementEngine === "local" ? false : current.aiConsent, finalUrl: null, comparisonUrl: null })),
+        setState((current) => ({ ...current, enhancementEngine, aiConsent: enhancementEngine === "ai" ? current.aiConsent : false, finalUrl: null, comparisonUrl: null })),
       setAiConsent: (aiConsent: boolean) => setState((current) => ({ ...current, aiConsent, finalUrl: null, comparisonUrl: null })),
       setAiAccessCode: (aiAccessCode: string) => setState((current) => ({ ...current, aiAccessCode, finalUrl: null, comparisonUrl: null })),
       setPreset: (preset: EnhancementPreset) => setState((current) => ({ ...current, preset, finalUrl: null, comparisonUrl: null })),
@@ -245,6 +250,18 @@ function makeComparison(before: HTMLCanvasElement, after: HTMLCanvasElement): st
   ctx.fillText("Before", 24, 36);
   ctx.fillText("After", after.width + 24, 36);
   return canvas.toDataURL("image/jpeg", 0.9);
+}
+
+async function renderEnhancedCanvas(
+  target: HTMLCanvasElement,
+  engine: EnhancementEngine,
+  preset: EnhancementPreset,
+  upscale: boolean,
+  accessCode: string,
+): Promise<HTMLCanvasElement> {
+  if (engine === "ai") return renderAIEnhancedCanvas(target, accessCode);
+  if (engine === "device-ai") return enhanceOnDevice(target, { preset, scale: upscale ? 2 : 1 });
+  return renderLocalEnhancedCanvas(target, preset, upscale);
 }
 
 function renderLocalEnhancedCanvas(target: HTMLCanvasElement, preset: EnhancementPreset, upscale: boolean): HTMLCanvasElement {

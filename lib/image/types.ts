@@ -7,7 +7,7 @@ export type Quad = [Point, Point, Point, Point];
 
 export type EnhancementPreset = "natural" | "crisp" | "soft" | "retro";
 
-export type EnhancementEngine = "local" | "ai";
+export type EnhancementEngine = "local" | "device-ai" | "ai";
 
 export type OutputMode = "frame" | "inner";
 

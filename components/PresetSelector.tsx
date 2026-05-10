@@ -64,6 +64,16 @@ export function PresetSelector({
             </button>
             <button
               type="button"
+              onClick={() => onEnhancementEngineChange("device-ai")}
+              className={`rounded-[8px] border p-3 text-left ${enhancementEngine === "device-ai" ? "border-ink bg-white" : "border-zinc-200 bg-white"}`}
+            >
+              <span className="block text-sm font-bold text-ink">スマホ内AI風補正</span>
+              <span className="mt-1 block text-xs leading-5 text-zinc-600">
+                写真を送信せず、端末内でノイズ低減、2倍拡大、輪郭の再強調を行います。軽量な推定補正で、重いAIモデルは使いません。
+              </span>
+            </button>
+            <button
+              type="button"
               onClick={() => onEnhancementEngineChange("ai")}
               className={`rounded-[8px] border p-3 text-left ${enhancementEngine === "ai" ? "border-ink bg-white" : "border-zinc-200 bg-white"}`}
             >
@@ -126,7 +136,7 @@ export function PresetSelector({
         ) : null}
 
         <label className="mt-5 flex min-h-12 items-center justify-between rounded-[8px] border border-zinc-200 px-4 py-3">
-          <span className="text-sm font-bold text-ink">2倍の高画質化風出力</span>
+          <span className="text-sm font-bold text-ink">{enhancementEngine === "device-ai" ? "最大2倍のスマホ内高画質化" : "2倍の高画質化風出力"}</span>
           <input type="checkbox" checked={upscale} onChange={(event) => onUpscaleChange(event.target.checked)} className="h-6 w-6 accent-ink" />
         </label>
 
