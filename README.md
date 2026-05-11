@@ -193,6 +193,16 @@ AI高画質化は、最初は「無料ベータ」または「手動発行のア
 
 ## AIサーバー起動方法 macOS / Linux
 
+推奨は `uv` です。
+
+```bash
+cd ai-server
+uv sync
+uv run uvicorn app.main:app --host 0.0.0.0 --port 8001
+```
+
+`venv` / `pip` で起動する場合:
+
 ```bash
 cd ai-server
 python -m venv .venv
@@ -208,6 +218,16 @@ NEXT_PUBLIC_AI_ENHANCE_ENDPOINT=http://localhost:8001/enhance npm run dev
 ```
 
 ## AIサーバー起動方法 Windows PowerShell
+
+推奨は `uv` です。
+
+```powershell
+cd ai-server
+uv sync
+uv run uvicorn app.main:app --host 0.0.0.0 --port 8001
+```
+
+`venv` / `pip` で起動する場合:
 
 ```powershell
 cd ai-server

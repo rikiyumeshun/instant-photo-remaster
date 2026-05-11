@@ -4,12 +4,23 @@ FastAPI based PoC server for AI enhancement routing. The current processor is a 
 
 ## Run
 
+Recommended local setup with `uv`:
+
+```bash
+uv sync
+uv run uvicorn app.main:app --host 0.0.0.0 --port 8001
+```
+
+Fallback with `venv` and `pip`:
+
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --host 0.0.0.0 --port 8001
 ```
+
+Render currently uses `requirements.txt` so the deployed free-tier service stays simple. Keep `pyproject.toml` and `requirements.txt` dependency versions aligned.
 
 ## Endpoint
 
