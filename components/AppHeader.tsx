@@ -11,6 +11,9 @@ export function AppHeader() {
         <p className="mt-4 text-base leading-7 text-zinc-700">
           スマホで撮ったインスタント写真を、自動で傾き補正・色補正・高画質化風に整えます。
         </p>
+        <a href="./privacy/" className="mt-4 inline-flex min-h-10 items-center rounded-[8px] border border-zinc-300 bg-white px-3 text-sm font-bold text-ink">
+          Privacy
+        </a>
       </div>
     </header>
   );

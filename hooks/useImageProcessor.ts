@@ -177,11 +177,15 @@ export function useImageProcessor() {
     const corrected = correctedCanvasRef.current;
     if (!corrected) return;
     if (state.enhancementEngine === "ai" && !state.aiConsent) {
-      setState((current) => ({ ...current, error: "AI高画質化を実行するには、写真をサーバーへ送信することへの同意が必要です。", errorScope: "enhance-ai" }));
+      const message = "AI高画質化を実行するには、写真をサーバーへ送信することへの同意が必要です。";
+      setState((current) => ({ ...current, error: message, errorScope: "enhance-ai" }));
+      notify("error", message);
       return;
     }
     if (state.enhancementEngine === "ai" && AI_ACCESS_CODE_REQUIRED && !state.aiAccessCode.trim()) {
-      setState((current) => ({ ...current, error: "AI高画質化を実行するには、AIアクセスコードを入力してください。", errorScope: "enhance-ai" }));
+      const message = "AI高画質化を実行するには、AIアクセスコードを入力してください。";
+      setState((current) => ({ ...current, error: message, errorScope: "enhance-ai" }));
+      notify("error", message);
       return;
     }
     setState((current) => ({

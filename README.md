@@ -122,6 +122,7 @@ AIサーバー側の入力制限:
 - 最大画素数: 16MP
 - 最大辺: 5000px
 - 対応形式: JPEG / PNG / WebP
+- 簡易レート制限: 1 IPあたり1分5回程度
 
 失敗した場合は、少し待って再実行する、アクセスコードを確認する、画像を縮小する、またはローカル高速補正 / スマホ内AI風補正を使ってください。
 
@@ -140,14 +141,26 @@ AI超解像は `lib/image/upscale.ts` の `upscaleImage()`、または `lib/imag
 
 Real-ESRGANは候補ですが、モデル本体、重み、依存ライブラリのライセンス確認が必要です。GPU推奨です。CPUでも動く可能性はありますが、非常に遅い可能性があります。
 
+公開PoCの補足ドキュメント:
+
+- Privacy: `/privacy/`
+- Third-party notices: `docs/third_party_notices.md`
+- AI model policy: `docs/ai_model_policy.md`
+- Release checklist: `docs/release_checklist.md`
+- Manual test checklist: `docs/manual_test_checklist.md`
+
 ## 開発
 
 ```bash
+npm ci # package-lock.json がある環境
+# または
 npm install
 npm run dev
 npm run lint
 npm run build
 ```
+
+この作業環境では `npm` コマンドが使えない場合があるため、GitHub Actionsでも `npm install`、`npm run lint`、`npm run build` を実行して確認します。
 
 ## 無料枠サーバー Render
 

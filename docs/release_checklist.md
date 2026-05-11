@@ -1,0 +1,24 @@
+# Public PoC Release Checklist
+
+- GitHub Pages opens on mobile.
+- Camera capture works.
+- Image upload works.
+- HEIC / HEIF upload is tested on iPhone.
+- White-frame detection or manual corner adjustment can reach perspective correction.
+- Local fast enhancement works.
+- On-device AI-style enhancement works in standard / high / max.
+- AI enhancement cannot run without consent.
+- If `AI_ACCESS_CODES` is empty, blank access code works.
+- If `AI_ACCESS_CODES` is set, only valid codes work.
+- Wrong access code shows an error Toast.
+- Render cold start shows a waiting message during AI enhancement.
+- Oversized images show a clear error.
+- Rate limit returns a clear error after repeated AI requests.
+- Final image can be saved.
+- Comparison image can be saved.
+- Sharing works on supported mobile browsers.
+- Share cancellation is not shown as a red error.
+- Privacy link is visible.
+- `docs/third_party_notices.md` exists.
+- `docs/ai_model_policy.md` exists.
+- README explains PoC limitations, privacy, AI server limits, and paid-feature limitations.

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import type { Notice } from "@/lib/image/types";
 
 type Props = {
@@ -16,10 +17,18 @@ const styles: Record<Notice["kind"], string> = {
 };
 
 export function AppToast({ notice, offset, onClose }: Props) {
+  useEffect(() => {
+    if (!notice) return undefined;
+    const duration = notice.kind === "error" || notice.kind === "warning" ? 7000 : 5000;
+    const timer = window.setTimeout(onClose, duration);
+    return () => window.clearTimeout(timer);
+  }, [notice, onClose]);
+
   if (!notice) return null;
+  const ariaLive = notice.kind === "error" || notice.kind === "warning" ? "assertive" : "polite";
 
   return (
-    <div className={`fixed inset-x-4 z-30 mx-auto max-w-xl ${offset ? "bottom-20" : "bottom-4"}`}>
+    <div aria-live={ariaLive} role="status" className={`fixed inset-x-4 z-30 mx-auto max-w-xl ${offset ? "bottom-20" : "bottom-4"}`}>
       <div className={`flex items-start gap-3 rounded-[8px] border px-4 py-3 text-sm font-semibold leading-6 shadow-soft ${styles[notice.kind]}`}>
         <p className="min-w-0 flex-1">{notice.message}</p>
         <button type="button" onClick={onClose} className="shrink-0 rounded-[6px] px-2 text-xs font-bold">

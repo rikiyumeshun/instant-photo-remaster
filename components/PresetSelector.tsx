@@ -106,7 +106,11 @@ export function PresetSelector({
               <label className="flex items-start gap-3 rounded-[8px] border border-amber-200 bg-amber-50 p-3">
                 <input type="checkbox" checked={aiConsent} onChange={(event) => onAiConsentChange(event.target.checked)} className="mt-1 h-5 w-5 shrink-0 accent-ink" />
                 <span className="text-xs font-semibold leading-5 text-amber-900">
-                  AI高画質化では、補正のために写真をサーバーへ送信します。処理後、画像はサーバーに保存しない設計です。この内容に同意して実行します。
+                  AI高画質化では、補正のために写真をサーバーへ送信します。処理後、画像はサーバーに保存しない設計です。
+                  <a href="./privacy/" className="mx-1 underline decoration-amber-700 underline-offset-2">
+                    Privacy
+                  </a>
+                  を確認し、この内容に同意して実行します。
                 </span>
               </label>
               <label className="block rounded-[8px] border border-zinc-200 bg-white p-3">
