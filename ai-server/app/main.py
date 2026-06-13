@@ -62,8 +62,16 @@ async def startup() -> None:
 @app.get("/health")
 async def health() -> dict[str, str | bool]:
     info = processor.health_info()
+    ready = info.get("ready", True)
+    status = "ok" if ready else "degraded"
+    if not ready and info.get("error_kind") == "torchvision_basicsr_compat":
+        info["message"] = (
+            "Real-ESRGAN は basicsr と torchvision の import 互換性問題で起動できません。"
+            " サーバー側の自動パッチが効いていない可能性があります。"
+            " ai-server/README.md の応急処置を確認してください。"
+        )
     return {
-        "status": "ok" if info.get("ready", True) else "degraded",
+        "status": status,
         **info,
     }
 

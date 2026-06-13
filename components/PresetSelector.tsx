@@ -1,7 +1,7 @@
 "use client";
 
-import type { BrightIntensity, CropSettings, DeviceEnhanceQuality, EnhancementEngine, EnhancementPreset, OutputMode, PreprocessMode } from "@/lib/image/types";
-import { PRESET_LABELS, PRESET_ORDER } from "@/lib/image/types";
+import type { BrightIntensity, CropSettings, DeviceEnhanceQuality, EnhancementEngine, EnhancementPreset, EyeClarityLevel, OutputMode, PreprocessMode } from "@/lib/image/types";
+import { EYE_CLARITY_LABELS, isBrightPreset, PRESET_LABELS, PRESET_ORDER } from "@/lib/image/types";
 
 type Props = {
   preset: EnhancementPreset;
@@ -13,6 +13,7 @@ type Props = {
   outputMode: OutputMode;
   cropSettings: CropSettings;
   upscale: boolean;
+  eyeClarity: EyeClarityLevel;
   preprocessMode: PreprocessMode;
   errorMessage?: string | null;
   disabled?: boolean;
@@ -25,6 +26,7 @@ type Props = {
   onOutputModeChange: (mode: OutputMode) => void;
   onCropSettingsChange: (settings: CropSettings) => void;
   onUpscaleChange: (upscale: boolean) => void;
+  onEyeClarityChange: (level: EyeClarityLevel) => void;
   onRender: () => void;
   onRetry: () => void;
   onUseLocal: () => void;
@@ -32,7 +34,8 @@ type Props = {
 };
 
 const descriptions: Record<EnhancementPreset, string> = {
-  bright: "暗い写真を大きく明るくし、白背景を白く、肌を明るく、ほんのりピンクで血色感を足し、黒髪や目を締めてくっきり見せます。白い服や背景は少し白飛びする場合があります。",
+  bright: "暗い写真を大きく明るくし、白背景を白く、肌を明るく、ほんのりピンクで血色感を足します。かわいい血色ピンク向け。",
+  whitePink: "白肌・白背景・透明感を高めつつ、肌や唇にピンク血色を残します。寒色ホワイト + ピンク血色向け。",
   natural: "明るさ、色、シャープを軽く整えます。",
   crisp: "SNS向けに輪郭とコントラストを強めます。",
   soft: "淡い色と空気感を残して柔らかくします。",
@@ -48,9 +51,15 @@ const qualityOptions: Array<{ key: DeviceEnhanceQuality; label: string; badge: s
 ];
 
 const brightIntensityOptions: Array<{ key: BrightIntensity; label: string; badge: string; description: string }> = [
-  { key: "standard", label: "標準", badge: "安全", description: "白飛びと赤みを抑え、自然に明るく血色よくします。" },
+  { key: "standard", label: "標準", badge: "安全", description: "白飛びと色被りを抑え、自然な仕上がり。" },
   { key: "strong", label: "強め", badge: "おすすめ", description: "明るさ・白さ・ピンク・黒締めのバランス型。通常はこれ。" },
   { key: "max", label: "最大", badge: "強盛り", description: "かなり明るく白く盛ります。白い服や背景は飛びやすいです。" },
+];
+
+const whitePinkIntensityOptions: Array<{ key: BrightIntensity; label: string; badge: string; description: string }> = [
+  { key: "standard", label: "標準", badge: "自然", description: "自然な白ピンク。白背景と血色のバランス型。" },
+  { key: "strong", label: "強め", badge: "おすすめ", description: "白肌・白背景・ピンク血色を目標画像寄せに盛ります。" },
+  { key: "max", label: "最大", badge: "高キー", description: "白飛び多めでかなり盛る。背景はより白く、肌はピンクを残します。" },
 ];
 
 export function PresetSelector({
@@ -63,6 +72,7 @@ export function PresetSelector({
   outputMode,
   cropSettings,
   upscale,
+  eyeClarity,
   preprocessMode,
   errorMessage,
   disabled,
@@ -75,6 +85,7 @@ export function PresetSelector({
   onOutputModeChange,
   onCropSettingsChange,
   onUpscaleChange,
+  onEyeClarityChange,
   onRender,
   onRetry,
   onUseLocal,
@@ -111,7 +122,9 @@ export function PresetSelector({
               className={`rounded-[8px] border p-3 text-left ${enhancementEngine === "ai" ? "border-ink bg-white" : "border-zinc-200 bg-white"}`}
             >
               <span className="block text-sm font-bold text-ink">AI高画質化</span>
-              <span className="mt-1 block text-xs leading-5 text-zinc-600">サーバー側で高画質化処理を行います。ローカル補正より時間がかかり、写真をサーバーへ送信します。</span>
+              <span className="mt-1 block text-xs leading-5 text-zinc-600">
+                AIで解像感を上げてから、選択中の補正で仕上げます。サーバーへ写真を送信するため、ローカル補正より時間がかかります。
+              </span>
             </button>
           </div>
           {enhancementEngine === "ai" ? (
@@ -205,22 +218,23 @@ export function PresetSelector({
               type="button"
               key={key}
               onClick={() => onPresetChange(key)}
-              className={`rounded-[8px] border p-4 text-left ${preset === key ? "border-ink bg-mist" : "border-zinc-200 bg-white"} ${key === "bright" ? "ring-1 ring-amber-100" : ""}`}
+              className={`rounded-[8px] border p-4 text-left ${preset === key ? "border-ink bg-mist" : "border-zinc-200 bg-white"} ${key === "bright" ? "ring-1 ring-amber-100" : ""} ${key === "whitePink" ? "ring-1 ring-sky-100" : ""}`}
             >
               <span className="block text-base font-bold text-ink">
                 {PRESET_LABELS[key]}
-                {key === "bright" ? <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-900">おすすめ</span> : null}
+                {key === "bright" ? <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-900">血色ピンク</span> : null}
+                {key === "whitePink" ? <span className="ml-2 rounded-full bg-sky-100 px-2 py-0.5 text-xs font-bold text-sky-900">白肌ピンク</span> : null}
               </span>
               <span className="mt-1 block text-sm leading-6 text-zinc-600">{descriptions[key]}</span>
             </button>
           ))}
         </div>
 
-        {preset === "bright" ? (
-          <div className="mt-4 rounded-[8px] border border-rose-100 bg-rose-50 p-3">
-            <p className="text-sm font-bold text-ink">明るく盛るの強度</p>
+        {isBrightPreset(preset) ? (
+          <div className={`mt-4 rounded-[8px] border p-3 ${preset === "whitePink" ? "border-sky-100 bg-sky-50" : "border-rose-100 bg-rose-50"}`}>
+            <p className="text-sm font-bold text-ink">{PRESET_LABELS[preset]}の強度</p>
             <div className="mt-3 grid gap-2">
-              {brightIntensityOptions.map((option) => (
+              {(preset === "whitePink" ? whitePinkIntensityOptions : brightIntensityOptions).map((option) => (
                 <button
                   type="button"
                   key={option.key}
@@ -237,7 +251,9 @@ export function PresetSelector({
             </div>
             {brightIntensity === "max" ? (
               <p className="mt-3 rounded-[8px] border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-                最大設定では白い服や背景が白飛びしやすくなります。ピンクは肌中心にかかり、白領域への染色は抑えています。
+                {preset === "whitePink"
+                  ? "最大設定では背景や白服が白飛びしやすくなります。ピンクは肌・唇中心に残し、背景全体への染色は抑えています。"
+                  : "最大設定では白い服や背景が白飛びしやすくなります。ピンクは肌中心にかかり、白領域への染色は抑えています。"}
               </p>
             ) : null}
           </div>
@@ -269,10 +285,25 @@ export function PresetSelector({
           <input type="checkbox" checked={upscale} onChange={(event) => onUpscaleChange(event.target.checked)} className="h-6 w-6 accent-ink" />
         </label>
 
-        <label className="mt-3 flex min-h-12 items-center justify-between rounded-[8px] border border-zinc-200 px-4 py-3 opacity-50">
-          <span className="text-sm font-bold text-ink">顔を自然に補正</span>
-          <input type="checkbox" disabled className="h-6 w-6" />
-        </label>
+        <div className="mt-5 rounded-[8px] border border-violet-100 bg-violet-50 p-3">
+          <p className="text-sm font-bold text-ink">目元くっきり</p>
+          <p className="mt-1 text-xs leading-5 text-zinc-600">目・まつ毛・黒目・白目・目元輪郭を自然に強調します。等倍表示で確認すると差が分かりやすいです。</p>
+          <div className="mt-3 grid grid-cols-2 gap-2 min-[420px]:grid-cols-4">
+            {([0, 1, 2, 3] as EyeClarityLevel[]).map((level) => (
+              <button
+                type="button"
+                key={level}
+                onClick={() => onEyeClarityChange(level)}
+                className={`min-h-11 rounded-[8px] border px-2 py-2 text-xs font-bold ${eyeClarity === level ? "border-ink bg-white text-ink" : "border-zinc-200 bg-white text-zinc-600"}`}
+              >
+                {EYE_CLARITY_LABELS[level]}
+              </button>
+            ))}
+          </div>
+          {eyeClarity === 3 ? (
+            <p className="mt-3 text-xs leading-5 text-violet-900">強め設定ではアイラインが不自然に濃く見える場合があります。</p>
+          ) : null}
+        </div>
 
         <button type="button" disabled={disabled} onClick={onRender} className="mt-5 min-h-14 w-full rounded-[8px] bg-ink px-5 py-4 text-base font-bold text-white disabled:opacity-50">
           補正プレビューを作成

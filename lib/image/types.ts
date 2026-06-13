@@ -7,7 +7,24 @@ export type Quad = [Point, Point, Point, Point];
 
 export type BrightIntensity = "standard" | "strong" | "max";
 
-export type EnhancementPreset = "natural" | "crisp" | "soft" | "retro" | "bright";
+export type EyeClarityLevel = 0 | 1 | 2 | 3;
+
+export const EYE_CLARITY_LABELS: Record<EyeClarityLevel, string> = {
+  0: "なし",
+  1: "ほんの少し",
+  2: "自然にくっきり",
+  3: "強め",
+};
+
+export type EnhancementPreset = "natural" | "crisp" | "soft" | "retro" | "bright" | "whitePink";
+
+export type BrightPreset = "bright" | "whitePink";
+
+export function isBrightPreset(preset: EnhancementPreset): preset is BrightPreset {
+  return preset === "bright" || preset === "whitePink";
+}
+
+export const BRIGHT_STYLE_PRESETS: BrightPreset[] = ["bright", "whitePink"];
 
 export type EnhancementEngine = "local" | "device-ai" | "ai";
 
@@ -31,6 +48,17 @@ export type CropSettings = {
   top: number;
   side: number;
   bottom: number;
+};
+
+export type ImageDimensions = {
+  width: number;
+  height: number;
+};
+
+export type ProcessingSizeLog = {
+  input: ImageDimensions;
+  aiOutput?: ImageDimensions;
+  final: ImageDimensions;
 };
 
 export type ProcessedImage = {
@@ -75,13 +103,14 @@ export const DEFAULT_CROP_SETTINGS: CropSettings = {
 
 export const PRESET_LABELS: Record<EnhancementPreset, string> = {
   bright: "明るく盛る",
+  whitePink: "白ピンク盛り",
   natural: "自然補正",
   crisp: "くっきり補正",
   soft: "やわらか補正",
   retro: "レトロ補正",
 };
 
-export const PRESET_ORDER: EnhancementPreset[] = ["bright", "natural", "crisp", "soft", "retro"];
+export const PRESET_ORDER: EnhancementPreset[] = ["bright", "whitePink", "natural", "crisp", "soft", "retro"];
 
 export const BRIGHT_INTENSITY_LABELS: Record<BrightIntensity, string> = {
   standard: "標準",

@@ -3,7 +3,13 @@ import { cloneCanvas, getCanvasContext } from "./canvas";
 
 export type EnhancementOptions = {
   brightIntensity?: BrightIntensity;
+  /** After Real-ESRGAN: apply preset with reduced sharpen/denoise. */
+  aiPostProcess?: boolean;
+  sharpenScale?: number;
 };
+
+export const AI_POST_SHARPEN_SCALE = 0.6;
+export const AI_POST_DENOISE_SCALE = 0.45;
 
 type PresetConfig = {
   exposure: number;
@@ -22,16 +28,41 @@ type PresetConfig = {
   skinProtect: boolean;
   pinkTint: number;
   skinPinkBoost: number;
+  whiteNeutralBoost: number;
+  yellowSuppress: number;
+  coolBias: number;
+  whitePinkProfile: boolean;
 };
 
 type BrightTunable = Pick<
   PresetConfig,
-  "exposure" | "shadows" | "midtoneLift" | "whiteBoost" | "blackCrush" | "pinkTint" | "skinPinkBoost" | "sharpen" | "highlights"
+  | "exposure"
+  | "shadows"
+  | "midtoneLift"
+  | "whiteBoost"
+  | "blackCrush"
+  | "pinkTint"
+  | "skinPinkBoost"
+  | "sharpen"
+  | "highlights"
+  | "whiteNeutralBoost"
+  | "yellowSuppress"
 >;
 
-const NEUTRAL_EXTRAS = { midtoneLift: 0, whiteBoost: 0, blackCrush: 0, skinProtect: false, pinkTint: 0, skinPinkBoost: 0 };
+const NEUTRAL_EXTRAS = {
+  midtoneLift: 0,
+  whiteBoost: 0,
+  blackCrush: 0,
+  skinProtect: false,
+  pinkTint: 0,
+  skinPinkBoost: 0,
+  whiteNeutralBoost: 0,
+  yellowSuppress: 0,
+  coolBias: 0,
+  whitePinkProfile: false,
+};
 
-const PRESETS: Record<Exclude<EnhancementPreset, "bright">, PresetConfig> = {
+const PRESETS: Record<Exclude<EnhancementPreset, "bright" | "whitePink">, PresetConfig> = {
   natural: { exposure: 8, contrast: 1.08, saturation: 1.06, warmth: 2, shadows: 10, highlights: 0.94, sharpen: 0.26, grain: 0, blackLift: 0, denoise: 0.35, ...NEUTRAL_EXTRAS },
   crisp: { exposure: 6, contrast: 1.18, saturation: 1.12, warmth: 0, shadows: 8, highlights: 0.92, sharpen: 0.55, grain: 0, blackLift: 0, denoise: 0.28, ...NEUTRAL_EXTRAS },
   soft: { exposure: 10, contrast: 1.02, saturation: 0.98, warmth: 3, shadows: 12, highlights: 0.86, sharpen: 0.12, grain: 1.2, blackLift: 4, denoise: 0.45, ...NEUTRAL_EXTRAS },
@@ -46,6 +77,20 @@ const BRIGHT_BASE: Omit<PresetConfig, keyof BrightTunable> = {
   blackLift: -10,
   denoise: 0.3,
   skinProtect: true,
+  coolBias: 0,
+  whitePinkProfile: false,
+};
+
+const WHITE_PINK_BASE: Omit<PresetConfig, keyof BrightTunable> = {
+  contrast: 1.14,
+  saturation: 1.06,
+  warmth: -2,
+  grain: 0,
+  blackLift: -11,
+  denoise: 0.28,
+  skinProtect: true,
+  coolBias: 1.2,
+  whitePinkProfile: true,
 };
 
 const BRIGHT_INTENSITY: Record<BrightIntensity, BrightTunable> = {
@@ -59,6 +104,8 @@ const BRIGHT_INTENSITY: Record<BrightIntensity, BrightTunable> = {
     skinPinkBoost: 0.78,
     sharpen: 0.52,
     highlights: 0.91,
+    whiteNeutralBoost: 0,
+    yellowSuppress: 0,
   },
   strong: {
     exposure: 22,
@@ -70,6 +117,8 @@ const BRIGHT_INTENSITY: Record<BrightIntensity, BrightTunable> = {
     skinPinkBoost: 1,
     sharpen: 0.72,
     highlights: 0.84,
+    whiteNeutralBoost: 0,
+    yellowSuppress: 0,
   },
   max: {
     exposure: 30,
@@ -81,19 +130,73 @@ const BRIGHT_INTENSITY: Record<BrightIntensity, BrightTunable> = {
     skinPinkBoost: 1.15,
     sharpen: 0.85,
     highlights: 0.78,
+    whiteNeutralBoost: 0,
+    yellowSuppress: 0,
+  },
+};
+
+const WHITE_PINK_INTENSITY: Record<BrightIntensity, BrightTunable> = {
+  standard: {
+    exposure: 16,
+    shadows: 22,
+    midtoneLift: 14,
+    whiteBoost: 0.2,
+    blackCrush: 10,
+    pinkTint: 0.88,
+    skinPinkBoost: 0.92,
+    sharpen: 0.58,
+    highlights: 0.86,
+    whiteNeutralBoost: 0.22,
+    yellowSuppress: 0.55,
+  },
+  strong: {
+    exposure: 24,
+    shadows: 34,
+    midtoneLift: 20,
+    whiteBoost: 0.3,
+    blackCrush: 13,
+    pinkTint: 1.06,
+    skinPinkBoost: 1.1,
+    sharpen: 0.72,
+    highlights: 0.8,
+    whiteNeutralBoost: 0.34,
+    yellowSuppress: 0.72,
+  },
+  max: {
+    exposure: 32,
+    shadows: 42,
+    midtoneLift: 26,
+    whiteBoost: 0.4,
+    blackCrush: 15,
+    pinkTint: 1.2,
+    skinPinkBoost: 1.18,
+    sharpen: 0.84,
+    highlights: 0.74,
+    whiteNeutralBoost: 0.42,
+    yellowSuppress: 0.85,
   },
 };
 
 function resolvePresetConfig(preset: EnhancementPreset, brightIntensity: BrightIntensity = "strong"): PresetConfig {
-  if (preset !== "bright") return PRESETS[preset];
-  return { ...BRIGHT_BASE, ...BRIGHT_INTENSITY[brightIntensity] };
+  if (preset === "bright") return { ...BRIGHT_BASE, ...BRIGHT_INTENSITY[brightIntensity] };
+  if (preset === "whitePink") return { ...WHITE_PINK_BASE, ...WHITE_PINK_INTENSITY[brightIntensity] };
+  return PRESETS[preset];
 }
 
 export function applyEnhancementPreset(source: HTMLCanvasElement, preset: EnhancementPreset, options?: EnhancementOptions): HTMLCanvasElement {
-  const config = resolvePresetConfig(preset, options?.brightIntensity);  const base = cloneCanvas(source);
+  const config = resolvePresetConfig(preset, options?.brightIntensity);
+  const sharpen = config.sharpen * resolveSharpenScale(options);
+  const denoise = config.denoise * (options?.aiPostProcess ? AI_POST_DENOISE_SCALE : 1);
+  const base = cloneCanvas(source);
   applyToneAndColor(base, config);
-  const denoised = config.denoise > 0 ? blurBlend(base, config.denoise) : base;
-  return unsharpMask(denoised, config.sharpen, config.grain);
+  const denoised = denoise > 0 ? blurBlend(base, denoise) : base;
+  return unsharpMask(denoised, sharpen, config.grain);
+}
+
+function resolveSharpenScale(options?: EnhancementOptions): number {
+  if (options?.sharpenScale !== undefined) return options.sharpenScale;
+  if (options?.aiPostProcess) return AI_POST_SHARPEN_SCALE;
+  return 1;
 }
 
 function applyToneAndColor(canvas: HTMLCanvasElement, config: PresetConfig): void {
@@ -105,25 +208,29 @@ function applyToneAndColor(canvas: HTMLCanvasElement, config: PresetConfig): voi
   for (let i = 0; i < data.length; i += 4) {
     let r = data[i] * balance.r + config.warmth;
     let g = data[i + 1] * balance.g;
-    let b = data[i + 2] * balance.b - config.warmth * 0.45;
+    let b = data[i + 2] * balance.b - config.warmth * 0.45 - config.coolBias;
 
     const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
     const skin = config.skinProtect && isSkinLike(r, g, b, luma);
+    const lip = config.whitePinkProfile && isLipLike(r, g, b, luma, skin);
     const shadowLift = Math.max(0, 1 - luma / 150) * config.shadows;
     const midtoneWeight = midtoneBell(luma);
     const midtoneBoost = config.midtoneLift * midtoneWeight;
-    const highlightTame = highlightRollOff(luma, config.highlights, skin);
+    const highlightTame = highlightRollOff(luma, config.highlights, skin || lip);
 
     r = (r + shadowLift + config.exposure + midtoneBoost) * highlightTame;
     g = (g + shadowLift + config.exposure + midtoneBoost) * highlightTame;
-    b = (b + shadowLift + config.exposure + midtoneBoost * 0.82) * highlightTame;
+    b = (b + shadowLift + config.exposure + midtoneBoost * 0.88 + config.coolBias * 0.35) * highlightTame;
 
-    if (config.whiteBoost > 0) {
-      const whiteWeight = whiteRegionWeight(r, g, b, luma, skin);
+    if (config.whiteBoost > 0 && luma >= 48) {
+      const whiteWeight = whiteRegionWeight(r, g, b, luma, skin, config.whitePinkProfile);
       if (whiteWeight > 0) {
-        r += (255 - r) * config.whiteBoost * whiteWeight;
-        g += (255 - g) * config.whiteBoost * whiteWeight;
-        b += (255 - b) * config.whiteBoost * whiteWeight;
+        const targetR = config.whitePinkProfile ? 252 : 255;
+        const targetG = config.whitePinkProfile ? 251 : 255;
+        const targetB = config.whitePinkProfile ? 255 : 255;
+        r += (targetR - r) * config.whiteBoost * whiteWeight;
+        g += (targetG - g) * config.whiteBoost * whiteWeight;
+        b += (targetB - b) * config.whiteBoost * whiteWeight;
       }
     }
 
@@ -131,19 +238,23 @@ function applyToneAndColor(canvas: HTMLCanvasElement, config: PresetConfig): voi
       const darkWeight = Math.max(0, 1 - luma / 52);
       r -= config.blackCrush * darkWeight;
       g -= config.blackCrush * darkWeight;
-      b -= config.blackCrush * darkWeight * 1.08;
+      b -= config.blackCrush * darkWeight * 1.06;
     }
 
     r = (r - 128) * config.contrast + 128 + config.blackLift;
     g = (g - 128) * config.contrast + 128 + config.blackLift;
-    b = (b - 128) * config.contrast + 128 + config.blackLift * 0.92;
+    b = (b - 128) * config.contrast + 128 + config.blackLift * 0.9;
 
     const gray = 0.299 * r + 0.587 * g + 0.114 * b;
     r = gray + (r - gray) * config.saturation;
     g = gray + (g - gray) * config.saturation;
     b = gray + (b - gray) * config.saturation;
 
-    ({ r, g, b } = applyPinkTint(r, g, b, config));
+    if (config.whitePinkProfile) {
+      ({ r, g, b } = applyWhitePinkFinishing(r, g, b, config, skin, lip));
+    } else {
+      ({ r, g, b } = applyPinkTint(r, g, b, config));
+    }
 
     data[i] = clampByte(r);
     data[i + 1] = clampByte(g);
@@ -151,6 +262,73 @@ function applyToneAndColor(canvas: HTMLCanvasElement, config: PresetConfig): voi
   }
 
   ctx.putImageData(image, 0, 0);
+}
+
+function applyWhitePinkFinishing(
+  r: number,
+  g: number,
+  b: number,
+  config: PresetConfig,
+  skin: boolean,
+  lip: boolean,
+): { r: number; g: number; b: number } {
+  const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  if (luma < 48) return { r, g, b };
+
+  const chroma = Math.max(r, g, b) - Math.min(r, g, b);
+  const whiteWeight = whiteRegionWeight(r, g, b, luma, skin, true);
+
+  if (!skin && luma >= 58 && config.yellowSuppress > 0) {
+    const yellowCast = Math.max(0, (r + g) * 0.5 - b - 8);
+    if (yellowCast > 0 && chroma < 48) {
+      const strength = config.yellowSuppress * Math.min(1, yellowCast / 28) * (1 - whiteWeight * 0.7);
+      b += strength * 3.2;
+      r -= strength * 1.4;
+      g -= strength * 1.1;
+    }
+  }
+
+  if (!skin && config.whiteNeutralBoost > 0) {
+    const neutralWeight = neutralWhiteWeight(r, g, b, luma);
+    if (neutralWeight > 0) {
+      const push = config.whiteNeutralBoost * neutralWeight;
+      r += (250 - r) * push * 0.92;
+      g += (251 - g) * push * 0.96;
+      b += (255 - b) * push;
+    }
+  }
+
+  if (skin || lip) {
+    const highlightFade = luma > 236 ? 0.35 : luma > 214 ? 0.65 : 1;
+    const strength = Math.min(1, (lip ? config.skinPinkBoost * 1.15 : config.skinPinkBoost) * highlightFade);
+    const orangeGuard = Math.max(0, Math.min(1, (r - g - 10) / 34));
+
+    r += (4 + strength * 7) * (1 - orangeGuard * 0.35);
+    b += 1.5 + strength * 3.5;
+    g += 0.4 + strength * 0.55;
+
+    if (skin && luma >= 120) {
+      const whiteLift = Math.min(1, (luma - 118) / 90) * strength * 0.45;
+      r += (252 - r) * whiteLift * 0.35;
+      g += (251 - g) * whiteLift * 0.28;
+      b += (255 - b) * whiteLift * 0.42;
+    }
+  } else if (whiteWeight < 0.55 && luma >= 72 && luma <= 205 && chroma >= 8 && config.pinkTint > 0) {
+    const strength = config.pinkTint * midtoneBell(luma) * Math.min(1, chroma / 40) * 0.35;
+    r += 1.5 + strength * 2;
+    b += 0.8 + strength;
+  }
+
+  return { r, g, b };
+}
+
+function neutralWhiteWeight(r: number, g: number, b: number, luma: number): number {
+  if (luma < 145) return 0;
+  const chroma = Math.max(r, g, b) - Math.min(r, g, b);
+  if (chroma > 36) return 0;
+  const neutral = 1 - chroma / 36;
+  const bright = Math.min(1, (luma - 145) / 95);
+  return neutral * bright;
 }
 
 function midtoneBell(luma: number): number {
@@ -161,20 +339,20 @@ function midtoneBell(luma: number): number {
 }
 
 function highlightRollOff(luma: number, highlights: number, skin: boolean): number {
-  const threshold = skin ? 228 : 205;
-  const softness = skin ? 28 : 42;
+  const threshold = skin ? 232 : 202;
+  const softness = skin ? 32 : 48;
   if (luma <= threshold) return 1;
   const t = Math.min(1, (luma - threshold) / softness);
   const eased = t * t * (3 - 2 * t);
   return 1 - (1 - highlights) * eased;
 }
 
-function whiteRegionWeight(r: number, g: number, b: number, luma: number, skin: boolean): number {
-  if (skin || luma < 168) return 0;
+function whiteRegionWeight(r: number, g: number, b: number, luma: number, skin: boolean, whitePink = false): number {
+  if (skin || luma < (whitePink ? 152 : 168)) return 0;
   const chroma = Math.max(r, g, b) - Math.min(r, g, b);
-  if (chroma > 42) return 0;
-  const neutral = 1 - chroma / 42;
-  const bright = Math.min(1, (luma - 168) / 72);
+  if (chroma > (whitePink ? 38 : 42)) return 0;
+  const neutral = 1 - chroma / (whitePink ? 38 : 42);
+  const bright = Math.min(1, (luma - (whitePink ? 152 : 168)) / (whitePink ? 88 : 72));
   return neutral * bright;
 }
 
@@ -184,6 +362,12 @@ function isSkinLike(r: number, g: number, b: number, luma: number): boolean {
   const rg = r - g;
   const gb = g - b;
   return rg > 6 && rg < 92 && gb > 1 && gb < 72 && r > 55;
+}
+
+function isLipLike(r: number, g: number, b: number, luma: number, skin: boolean): boolean {
+  if (!skin || luma < 45 || luma > 220) return false;
+  const rg = r - g;
+  return rg > 14 && r > g * 1.06 && r > b * 1.12 && g > b;
 }
 
 function applyPinkTint(r: number, g: number, b: number, config: PresetConfig): { r: number; g: number; b: number } {

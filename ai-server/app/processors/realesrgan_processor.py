@@ -11,9 +11,26 @@ from PIL import Image
 
 from app.processors.base import ImageProcessor
 from app.processors.errors import ImageTooLargeError, ProcessingTimeoutError, ProcessorNotReadyError
+from app.compat.torchvision_basicsr import (
+    apply_torchvision_basicsr_compat,
+    format_basicsr_import_error,
+    is_functional_tensor_import_error,
+)
 
-MODEL_URL = "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth"
-MODEL_FILENAME = "RealESRGAN_x2plus.pth"
+MODEL_PROFILES = {
+    "x2plus": {
+        "url": "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth",
+        "filename": "RealESRGAN_x2plus.pth",
+        "scale": 2,
+        "ncnn_name": "realesrgan-x2plus",
+    },
+    "x4plus": {
+        "url": "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth",
+        "filename": "RealESRGAN_x4plus.pth",
+        "scale": 4,
+        "ncnn_name": "realesrgan-x4plus",
+    },
+}
 
 
 class RealESRGANProcessor(ImageProcessor):
@@ -21,27 +38,42 @@ class RealESRGANProcessor(ImageProcessor):
     scale = 2
 
     def __init__(self) -> None:
-        self.max_input_edge = int(os.getenv("REALESRGAN_MAX_INPUT_EDGE", "1920"))
+        model_key = os.getenv("REALESRGAN_MODEL", "x2plus").strip().lower()
+        if model_key not in MODEL_PROFILES:
+            raise ValueError(f"Unknown REALESRGAN_MODEL: {model_key}. Use x2plus or x4plus.")
+        self.model_profile = MODEL_PROFILES[model_key]
+        self.scale = int(self.model_profile["scale"])
+        self.name = f"realesrgan-{model_key}"
+        self.max_input_edge = int(os.getenv("REALESRGAN_MAX_INPUT_EDGE", "1280" if self.scale >= 4 else "1920"))
         self.timeout_seconds = int(os.getenv("AI_PROCESS_TIMEOUT_SECONDS", "120"))
         self.backend = os.getenv("REALESRGAN_BACKEND", "auto").strip().lower()
         self.ncnn_bin = os.getenv("REALESRGAN_NCNN_BIN", "").strip()
-        self.ncnn_model = os.getenv("REALESRGAN_NCNN_MODEL", "realesrgan-x2plus").strip()
+        self.ncnn_model = os.getenv("REALESRGAN_NCNN_MODEL", self.model_profile["ncnn_name"]).strip()
         self.model_dir = Path(os.getenv("REALESRGAN_MODEL_DIR", Path(__file__).resolve().parents[2] / "models"))
         self._torch_runner: _TorchRealESRGAN | None = None
         self._active_backend: str | None = None
         self._ready = False
         self._ready_message = "Real-ESRGAN processor is not initialized yet."
+        self._last_error: str | None = None
+        self._error_kind: str | None = None
         self._device = "cpu"
 
     def health_info(self) -> dict[str, str | bool]:
-        return {
+        info: dict[str, str | bool] = {
             "processor": self.name,
             "ready": self._ready,
             "backend": self._active_backend or "uninitialized",
             "device": self._device,
             "max_input_edge": str(self.max_input_edge),
+            "model": self.name,
+            "scale": str(self.scale),
             "message": self._ready_message,
         }
+        if self._last_error:
+            info["error"] = self._last_error
+        if self._error_kind:
+            info["error_kind"] = self._error_kind
+        return info
 
     def warmup(self) -> None:
         self._ensure_backend()
@@ -91,6 +123,7 @@ class RealESRGANProcessor(ImageProcessor):
                     self._torch_runner = _TorchRealESRGAN(
                         model_dir=self.model_dir,
                         timeout_seconds=self.timeout_seconds,
+                        model_profile=self.model_profile,
                     )
                     self._torch_runner.warmup()
                     self._active_backend = "torch"
@@ -100,9 +133,16 @@ class RealESRGANProcessor(ImageProcessor):
                     self._ready_message = f"Real-ESRGAN PyTorch backend is ready on {self._device}."
                     return
             except Exception as exc:  # noqa: BLE001 - collect all backend startup failures for PoC diagnostics
-                errors.append(f"{backend}: {exc}")
+                if is_functional_tensor_import_error(exc):
+                    errors.append(format_basicsr_import_error(exc))
+                else:
+                    errors.append(f"{backend}: {exc}")
 
         detail = " / ".join(errors) if errors else "No Real-ESRGAN backend configured."
+        self._last_error = detail
+        self._error_kind = "torchvision_basicsr_compat" if any(
+            "functional_tensor" in item or "rgb_to_grayscale" in item for item in errors
+        ) else "processor_not_ready"
         self._ready_message = (
             "Real-ESRGAN PoC is not ready. Install PyTorch dependencies "
             "(pip install -r requirements-realesrgan.txt) or set REALESRGAN_NCNN_BIN. "
@@ -188,9 +228,11 @@ class RealESRGANProcessor(ImageProcessor):
 
 
 class _TorchRealESRGAN:
-    def __init__(self, model_dir: Path, timeout_seconds: int) -> None:
+    def __init__(self, model_dir: Path, timeout_seconds: int, model_profile: dict[str, str | int]) -> None:
         self.model_dir = model_dir
         self.timeout_seconds = timeout_seconds
+        self.model_profile = model_profile
+        self.scale = int(model_profile["scale"])
         self.device = "cpu"
         self._upsampler = None
 
@@ -205,7 +247,7 @@ class _TorchRealESRGAN:
         assert self._upsampler is not None
         bgr = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
         try:
-            output, _ = self._upsampler.enhance(bgr, outscale=2)
+            output, _ = self._upsampler.enhance(bgr, outscale=self.scale)
         except RuntimeError as exc:
             message = str(exc).lower()
             if "out of memory" in message or "cuda" in message:
@@ -219,21 +261,28 @@ class _TorchRealESRGAN:
     def _ensure_model(self) -> None:
         if self._upsampler is not None:
             return
+        if not apply_torchvision_basicsr_compat():
+            raise ProcessorNotReadyError(
+                "torchvision が見つからないか、rgb_to_grayscale 互換パッチを適用できませんでした。"
+                " pip install -r requirements-realesrgan.txt を実行してください。"
+            )
         try:
             import torch
             from basicsr.archs.rrdbnet_arch import RRDBNet
             from realesrgan import RealESRGANer
         except ImportError as exc:
+            if is_functional_tensor_import_error(exc):
+                raise ProcessorNotReadyError(format_basicsr_import_error(exc)) from exc
             raise ProcessorNotReadyError(
                 "Real-ESRGAN PyTorch dependencies are missing. Install with: pip install -r requirements-realesrgan.txt"
             ) from exc
 
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         model_path = self._ensure_model_weights()
-        model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=2)
-        tile = 400 if self.device == "cuda" else 256
+        model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=self.scale)
+        tile = 400 if self.device == "cuda" else 256 if self.scale <= 2 else 128
         self._upsampler = RealESRGANer(
-            scale=2,
+            scale=self.scale,
             model_path=str(model_path),
             model=model,
             tile=tile,
@@ -245,11 +294,11 @@ class _TorchRealESRGAN:
 
     def _ensure_model_weights(self) -> Path:
         self.model_dir.mkdir(parents=True, exist_ok=True)
-        model_path = self.model_dir / MODEL_FILENAME
+        model_path = self.model_dir / str(self.model_profile["filename"])
         if model_path.exists() and model_path.stat().st_size > 1_000_000:
             return model_path
         try:
-            urllib.request.urlretrieve(MODEL_URL, model_path)
+            urllib.request.urlretrieve(str(self.model_profile["url"]), model_path)
         except Exception as exc:  # noqa: BLE001
             raise ProcessorNotReadyError(
                 f"Failed to download Real-ESRGAN weights to {model_path}: {exc}"

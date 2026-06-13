@@ -73,6 +73,7 @@ export default function Home() {
           outputMode={state.outputMode}
           cropSettings={state.cropSettings}
           upscale={state.upscale}
+          eyeClarity={state.eyeClarity}
           preprocessMode={state.preprocessMode}
           errorMessage={enhanceError}
           disabled={!state.correctedUrl || state.isProcessing}
@@ -85,6 +86,7 @@ export default function Home() {
           onOutputModeChange={actions.setOutputMode}
           onCropSettingsChange={actions.setCropSettings}
           onUpscaleChange={actions.setUpscale}
+          onEyeClarityChange={actions.setEyeClarity}
           onRender={actions.renderFinal}
           onRetry={actions.renderFinal}
           onUseLocal={() => actions.setEnhancementEngine("local")}
@@ -93,8 +95,20 @@ export default function Home() {
             actions.setDeviceEnhanceQuality("high");
           }}
         />
-        <BeforeAfterSlider before={beforeAfterBefore} after={state.finalUrl} />
-        <PhotoPreview src={state.finalUrl} label="保存プレビュー" emptyText="補正プレビューを作成すると保存用画像が表示されます。" />
+        <BeforeAfterSlider
+          before={beforeAfterBefore}
+          after={state.finalUrl}
+          beforeSize={state.processingSizes?.input ?? state.sourceSize}
+          afterSize={state.processingSizes?.final ?? null}
+          sizeLog={state.processingSizes}
+        />
+        <PhotoPreview
+          src={state.finalUrl}
+          label="保存プレビュー"
+          emptyText="補正プレビューを作成すると保存用画像が表示されます。"
+          dimensions={state.processingSizes?.final ?? null}
+          dimensionNote={state.enhancementEngine === "ai" ? "AI超解像 + 選択中補正 · JPEG保存はこの解像度" : null}
+        />
         <ExportPanel
           disabled={!state.finalUrl || state.isProcessing}
           canShare={state.canShare}

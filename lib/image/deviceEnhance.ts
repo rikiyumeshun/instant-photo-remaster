@@ -21,6 +21,7 @@ const CONFIGS: Record<EnhancementPreset, DeviceConfig> = {
   soft: { denoise: 0.42, detail: 0.18, microContrast: 0.03 },
   retro: { denoise: 0.28, detail: 0.22, microContrast: 0.04 },
   bright: { denoise: 0.26, detail: 0.62, microContrast: 0.16 },
+  whitePink: { denoise: 0.24, detail: 0.64, microContrast: 0.15 },
 };
 
 const QUALITY_MULTIPLIERS: Record<DeviceEnhanceQuality, DeviceConfig> = {

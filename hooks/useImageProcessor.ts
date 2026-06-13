@@ -10,7 +10,8 @@ import { enhanceWithAI } from "@/lib/image/aiEnhance";
 import { canvasToBlob, exportImage, makeExportFileName, shareImage } from "@/lib/image/export";
 import { perspectiveTransform } from "@/lib/image/perspective";
 import { upscaleImage } from "@/lib/image/upscale";
-import type { BrightIntensity, CropSettings, DetectionResult, DeviceEnhanceQuality, EnhancementEngine, EnhancementPreset, ErrorScope, Notice, NoticeKind, OutputMode, PreprocessMode, Quad } from "@/lib/image/types";
+import { applyEyeClarity } from "@/lib/image/eyeEnhance";
+import type { BrightIntensity, CropSettings, DetectionResult, DeviceEnhanceQuality, EnhancementEngine, EnhancementPreset, ErrorScope, EyeClarityLevel, Notice, NoticeKind, OutputMode, PreprocessMode, ProcessingSizeLog, Quad } from "@/lib/image/types";
 import { DEFAULT_CROP_SETTINGS } from "@/lib/image/types";
 
 type ProcessorState = {
@@ -38,6 +39,8 @@ type ProcessorState = {
   canShare: boolean;
   canCancel: boolean;
   upscale: boolean;
+  eyeClarity: EyeClarityLevel;
+  processingSizes: ProcessingSizeLog | null;
 };
 
 const initialState: ProcessorState = {
@@ -65,11 +68,29 @@ const initialState: ProcessorState = {
   canShare: false,
   canCancel: false,
   upscale: true,
+  eyeClarity: 2,
+  processingSizes: null,
 };
 
 const AI_ACCESS_CODE_REQUIRED = process.env.NEXT_PUBLIC_AI_ACCESS_CODE_REQUIRED === "true";
 const AI_TIMEOUT_MS = 120000;
 let noticeId = 0;
+
+type EnhancedRenderResult = {
+  canvas: HTMLCanvasElement;
+  sizeLog?: ProcessingSizeLog | null;
+};
+
+function canvasSize(canvas: HTMLCanvasElement) {
+  return { width: canvas.width, height: canvas.height };
+}
+
+function formatSizeLog(log: ProcessingSizeLog): string {
+  const parts = [`input ${log.input.width}x${log.input.height}`];
+  if (log.aiOutput) parts.push(`AI ${log.aiOutput.width}x${log.aiOutput.height}`);
+  parts.push(`final ${log.final.width}x${log.final.height}`);
+  return parts.join(" → ");
+}
 
 export function useImageProcessor() {
   const sourceCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -221,7 +242,7 @@ export function useImageProcessor() {
   }, []);
 
   const updateQuad = useCallback((quad: Quad) => {
-    setState((current) => ({ ...current, quad, correctedUrl: null, finalUrl: null, comparisonUrl: null, error: null, errorScope: null }));
+    setState((current) => ({ ...current, quad, correctedUrl: null, finalUrl: null, comparisonUrl: null, processingSizes: null, error: null, errorScope: null }));
     correctedCanvasRef.current = null;
     finalCanvasRef.current = null;
   }, []);
@@ -297,7 +318,7 @@ export function useImageProcessor() {
       if (state.enhancementEngine === "device-ai" && safeQuality !== state.deviceEnhanceQuality) {
         notify("warning", "画像が大きいため、スマホ内AI風補正を最高品質から高品質に自動で切り替えました。");
       }
-      const finalCanvas = await renderEnhancedCanvas(
+      const { canvas: enhancedCanvas, sizeLog } = await renderEnhancedCanvas(
         target,
         state.enhancementEngine,
         state.preset,
@@ -307,12 +328,33 @@ export function useImageProcessor() {
         state.brightIntensity,
         aiAbortRef,
       );
+      let finalCanvas = enhancedCanvas;
+      let processingSizes = sizeLog ?? null;
+      if (state.eyeClarity > 0) {
+        setState((current) => ({ ...current, processingMessage: "目元をくっきり補正中..." }));
+        await yieldToBrowser();
+        const eyeResult = await applyEyeClarity(enhancedCanvas, state.eyeClarity);
+        finalCanvas = eyeResult.canvas;
+        if (eyeResult.skippedReason) {
+          notify("info", eyeResult.skippedReason);
+        }
+      }
+      if (state.enhancementEngine === "local" && state.upscale) {
+        finalCanvas = upscaleImage(finalCanvas, 2);
+        processingSizes = processingSizes
+          ? { ...processingSizes, final: canvasSize(finalCanvas) }
+          : { input: canvasSize(target), final: canvasSize(finalCanvas) };
+      }
+      if (sizeLog && process.env.NODE_ENV !== "production") {
+        console.info("[instant-photo-remaster] processing sizes", formatSizeLog(sizeLog));
+      }
       const beforeCanvas = state.preprocessMode === "direct" ? sourceCanvasRef.current ?? corrected : corrected;
       finalCanvasRef.current = finalCanvas;
       setState((current) => ({
         ...current,
         finalUrl: finalCanvas.toDataURL("image/jpeg", 0.92),
         comparisonUrl: makeComparison(beforeCanvas, finalCanvas),
+        processingSizes: processingSizes,
         isProcessing: false,
         processingMessage: null,
         canShare: typeof navigator !== "undefined" && "share" in navigator,
@@ -320,7 +362,12 @@ export function useImageProcessor() {
         errorScope: null,
         canCancel: false,
       }));
-      notify("success", "補正プレビューを作成しました。");
+      notify(
+        "success",
+        processingSizes ?? sizeLog
+          ? `補正プレビューを作成しました。${formatSizeLog(processingSizes ?? sizeLog!)}`
+          : "補正プレビューを作成しました。",
+      );
     } catch (error) {
       if (userCancelRef.current) {
         userCancelRef.current = false;
@@ -345,7 +392,7 @@ export function useImageProcessor() {
       }));
       notify("error", state.enhancementEngine === "ai" ? message || "AI補正に失敗しました。" : "補正に失敗しました。設定を変えて再試行してください。");
     }
-  }, [notify, state.aiAccessCode, state.aiConsent, state.brightIntensity, state.cropSettings, state.deviceEnhanceQuality, state.enhancementEngine, state.outputMode, state.preprocessMode, state.preset, state.upscale]);
+  }, [notify, state.aiAccessCode, state.aiConsent, state.brightIntensity, state.cropSettings, state.deviceEnhanceQuality, state.enhancementEngine, state.eyeClarity, state.outputMode, state.preprocessMode, state.preset, state.upscale]);
 
   const saveFinal = useCallback(async () => {
     const canvas = finalCanvasRef.current;
@@ -431,15 +478,16 @@ export function useImageProcessor() {
       cancelProcessing,
       setPreprocessMode,
       setEnhancementEngine: (enhancementEngine: EnhancementEngine) =>
-        setState((current) => ({ ...current, enhancementEngine, aiConsent: enhancementEngine === "ai" ? current.aiConsent : false, finalUrl: null, comparisonUrl: null, error: null, errorScope: null })),
-      setAiConsent: (aiConsent: boolean) => setState((current) => ({ ...current, aiConsent, finalUrl: null, comparisonUrl: null, error: null, errorScope: null })),
-      setAiAccessCode: (aiAccessCode: string) => setState((current) => ({ ...current, aiAccessCode, finalUrl: null, comparisonUrl: null, error: null, errorScope: null })),
-      setPreset: (preset: EnhancementPreset) => setState((current) => ({ ...current, preset, finalUrl: null, comparisonUrl: null, error: null, errorScope: null })),
-      setBrightIntensity: (brightIntensity: BrightIntensity) => setState((current) => ({ ...current, brightIntensity, finalUrl: null, comparisonUrl: null, error: null, errorScope: null })),
-      setDeviceEnhanceQuality: (deviceEnhanceQuality: DeviceEnhanceQuality) => setState((current) => ({ ...current, deviceEnhanceQuality, finalUrl: null, comparisonUrl: null, error: null, errorScope: null })),
-      setOutputMode: (outputMode: OutputMode) => setState((current) => ({ ...current, outputMode, finalUrl: null, comparisonUrl: null, error: null, errorScope: null })),
-      setCropSettings: (cropSettings: CropSettings) => setState((current) => ({ ...current, cropSettings, finalUrl: null, comparisonUrl: null, error: null, errorScope: null })),
-      setUpscale: (upscale: boolean) => setState((current) => ({ ...current, upscale, finalUrl: null, comparisonUrl: null, error: null, errorScope: null })),
+        setState((current) => ({ ...current, enhancementEngine, aiConsent: enhancementEngine === "ai" ? current.aiConsent : false, finalUrl: null, comparisonUrl: null, processingSizes: null, error: null, errorScope: null })),
+      setAiConsent: (aiConsent: boolean) => setState((current) => ({ ...current, aiConsent, finalUrl: null, comparisonUrl: null, processingSizes: null, error: null, errorScope: null })),
+      setAiAccessCode: (aiAccessCode: string) => setState((current) => ({ ...current, aiAccessCode, finalUrl: null, comparisonUrl: null, processingSizes: null, error: null, errorScope: null })),
+      setPreset: (preset: EnhancementPreset) => setState((current) => ({ ...current, preset, finalUrl: null, comparisonUrl: null, processingSizes: null, error: null, errorScope: null })),
+      setBrightIntensity: (brightIntensity: BrightIntensity) => setState((current) => ({ ...current, brightIntensity, finalUrl: null, comparisonUrl: null, processingSizes: null, error: null, errorScope: null })),
+      setDeviceEnhanceQuality: (deviceEnhanceQuality: DeviceEnhanceQuality) => setState((current) => ({ ...current, deviceEnhanceQuality, finalUrl: null, comparisonUrl: null, processingSizes: null, error: null, errorScope: null })),
+      setOutputMode: (outputMode: OutputMode) => setState((current) => ({ ...current, outputMode, finalUrl: null, comparisonUrl: null, processingSizes: null, error: null, errorScope: null })),
+      setCropSettings: (cropSettings: CropSettings) => setState((current) => ({ ...current, cropSettings, finalUrl: null, comparisonUrl: null, processingSizes: null, error: null, errorScope: null })),
+      setUpscale: (upscale: boolean) => setState((current) => ({ ...current, upscale, finalUrl: null, comparisonUrl: null, processingSizes: null, error: null, errorScope: null })),
+      setEyeClarity: (eyeClarity: EyeClarityLevel) => setState((current) => ({ ...current, eyeClarity, finalUrl: null, comparisonUrl: null, processingSizes: null, error: null, errorScope: null })),
       clearError: () => setState((current) => ({ ...current, error: null, errorScope: null })),
       clearNotice: () => setState((current) => ({ ...current, notice: null })),
     }),
@@ -470,6 +518,7 @@ function makeComparison(before: HTMLCanvasElement, after: HTMLCanvasElement): st
   return canvas.toDataURL("image/jpeg", 0.9);
 }
 
+
 async function renderEnhancedCanvas(
   target: HTMLCanvasElement,
   engine: EnhancementEngine,
@@ -479,25 +528,39 @@ async function renderEnhancedCanvas(
   accessCode: string,
   brightIntensity: BrightIntensity,
   aiAbortRef: MutableRefObject<AbortController | null>,
-): Promise<HTMLCanvasElement> {
-  if (engine === "ai") return renderAIEnhancedCanvas(target, accessCode, aiAbortRef);
-  if (engine === "device-ai") return enhanceOnDevice(target, { preset, quality: deviceEnhanceQuality, scale: upscale ? 2 : 1, brightIntensity });
-  return renderLocalEnhancedCanvas(target, preset, upscale, brightIntensity);
+): Promise<EnhancedRenderResult> {
+  if (engine === "ai") return renderAIEnhancedCanvas(target, accessCode, preset, brightIntensity, aiAbortRef);
+  if (engine === "device-ai") {
+    const canvas = await enhanceOnDevice(target, { preset, quality: deviceEnhanceQuality, scale: upscale ? 2 : 1, brightIntensity });
+    return { canvas, sizeLog: { input: canvasSize(target), final: canvasSize(canvas) } };
+  }
+  const canvas = renderLocalEnhancedCanvas(target, preset, brightIntensity);
+  return { canvas, sizeLog: { input: canvasSize(target), final: canvasSize(canvas) } };
 }
 
-function renderLocalEnhancedCanvas(target: HTMLCanvasElement, preset: EnhancementPreset, upscale: boolean, brightIntensity: BrightIntensity): HTMLCanvasElement {
-  const enhanced = applyEnhancementPreset(target, preset, { brightIntensity });
-  return upscale ? upscaleImage(enhanced, 2) : enhanced;
+function renderLocalEnhancedCanvas(target: HTMLCanvasElement, preset: EnhancementPreset, brightIntensity: BrightIntensity): HTMLCanvasElement {
+  return applyEnhancementPreset(target, preset, { brightIntensity });
 }
 
-async function renderAIEnhancedCanvas(target: HTMLCanvasElement, accessCode: string, aiAbortRef: MutableRefObject<AbortController | null>): Promise<HTMLCanvasElement> {
+async function renderAIEnhancedCanvas(
+  target: HTMLCanvasElement,
+  accessCode: string,
+  preset: EnhancementPreset,
+  brightIntensity: BrightIntensity,
+  aiAbortRef: MutableRefObject<AbortController | null>,
+): Promise<EnhancedRenderResult> {
+  const input = canvasSize(target);
   const blob = await canvasToBlob(target, "image/jpeg", 0.92);
   const controller = new AbortController();
   aiAbortRef.current = controller;
   const timeout = window.setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
   try {
     const result = await enhanceWithAI(blob, { accessCode: accessCode.trim() || undefined, signal: controller.signal });
-    return blobToCanvas(result.blob);
+    const upscaled = await blobToCanvas(result.blob);
+    const aiOutput = canvasSize(upscaled);
+    const finalCanvas = applyEnhancementPreset(upscaled, preset, { brightIntensity, aiPostProcess: true });
+    const sizeLog: ProcessingSizeLog = { input, aiOutput, final: canvasSize(finalCanvas) };
+    return { canvas: finalCanvas, sizeLog };
   } finally {
     aiAbortRef.current = null;
     window.clearTimeout(timeout);
