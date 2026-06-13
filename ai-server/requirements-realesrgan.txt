@@ -1,0 +1,9 @@
+# Optional Real-ESRGAN PoC dependencies (PyTorch CPU/GPU backend).
+# Install on top of requirements.txt:
+#   pip install -r requirements.txt -r requirements-realesrgan.txt
+torch>=2.2.0
+torchvision>=0.17.0
+numpy>=1.26.0
+opencv-python-headless>=4.8.0
+basicsr>=1.4.2
+realesrgan>=0.3.0

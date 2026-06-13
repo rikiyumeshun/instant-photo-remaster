@@ -11,3 +11,5 @@ services:
         value: https://rikiyumeshun.github.io,http://localhost:3000,http://127.0.0.1:3000
       - key: AI_ACCESS_CODES
         sync: false
+      - key: AI_PROCESSOR
+        value: local_dummy

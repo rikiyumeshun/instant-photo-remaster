@@ -45,7 +45,7 @@ export async function enhanceWithAI(image: Blob, options: AIEnhanceOptions = {})
       throw new Error("AI補正に対応していない画像形式、または読み込めない画像です。JPEG、PNG、WebPをお試しください。");
     }
     if (response.status === 501) {
-      throw new Error("AI高画質化サーバーが未設定です。ローカル補正をお試しください。");
+      throw new Error("AI高画質化サーバーで超解像モデルが未設定です。ローカル補正をお試しください。");
     }
     if (response.status === 502 || response.status === 503 || response.status === 504) {
       throw new Error("AIサーバーが起動中、または一時的に応答できません。少し待って再実行するか、ローカル補正を使ってください。");

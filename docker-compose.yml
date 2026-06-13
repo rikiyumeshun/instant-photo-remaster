@@ -19,6 +19,8 @@ services:
     command: sh -c "pip install -r requirements.txt && uvicorn app.main:app --host 0.0.0.0 --port 8001"
     ports:
       - "8001:8001"
+    environment:
+      AI_PROCESSOR: local_dummy
     volumes:
       - ./ai-server:/app
 

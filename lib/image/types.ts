@@ -5,7 +5,9 @@ export type Point = {
 
 export type Quad = [Point, Point, Point, Point];
 
-export type EnhancementPreset = "natural" | "crisp" | "soft" | "retro";
+export type BrightIntensity = "standard" | "strong" | "max";
+
+export type EnhancementPreset = "natural" | "crisp" | "soft" | "retro" | "bright";
 
 export type EnhancementEngine = "local" | "device-ai" | "ai";
 
@@ -20,6 +22,8 @@ export type Notice = {
   kind: NoticeKind;
   message: string;
 };
+
+export type PreprocessMode = "direct" | "perspective";
 
 export type OutputMode = "frame" | "inner";
 
@@ -70,8 +74,17 @@ export const DEFAULT_CROP_SETTINGS: CropSettings = {
 };
 
 export const PRESET_LABELS: Record<EnhancementPreset, string> = {
+  bright: "明るく盛る",
   natural: "自然補正",
   crisp: "くっきり補正",
   soft: "やわらか補正",
   retro: "レトロ補正",
+};
+
+export const PRESET_ORDER: EnhancementPreset[] = ["bright", "natural", "crisp", "soft", "retro"];
+
+export const BRIGHT_INTENSITY_LABELS: Record<BrightIntensity, string> = {
+  standard: "標準",
+  strong: "強め",
+  max: "最大",
 };

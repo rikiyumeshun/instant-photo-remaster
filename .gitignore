@@ -8,3 +8,5 @@ dist
 coverage
 __pycache__
 *.pyc
+ai-server/models/
+ai-server/bin/

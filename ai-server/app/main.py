@@ -8,7 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from PIL import Image, UnidentifiedImageError
 
-from app.processors.local_dummy import LocalDummyProcessor
+from app.processors.errors import ImageTooLargeError, ProcessingTimeoutError, ProcessorNotReadyError
+from app.processors.factory import create_processor
 
 app = FastAPI(title="Instant Photo Remaster AI Server")
 
@@ -26,7 +27,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-processor = LocalDummyProcessor()
+try:
+    processor = create_processor()
+except ValueError as exc:
+    raise RuntimeError(str(exc)) from exc
+
 allowed_access_codes = {
     code.strip()
     for code in os.getenv("AI_ACCESS_CODES", "").split(",")
@@ -45,9 +50,22 @@ Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 request_log: dict[str, deque[float]] = defaultdict(deque)
 
 
+@app.on_event("startup")
+async def startup() -> None:
+    try:
+        processor.warmup()
+    except ProcessorNotReadyError:
+        # Keep the API online so /health can explain that Real-ESRGAN is not ready yet.
+        return
+
+
 @app.get("/health")
-async def health() -> dict[str, str]:
-    return {"status": "ok", "processor": processor.name}
+async def health() -> dict[str, str | bool]:
+    info = processor.health_info()
+    return {
+        "status": "ok" if info.get("ready", True) else "degraded",
+        **info,
+    }
 
 
 @app.post("/enhance")
@@ -74,9 +92,28 @@ async def enhance(request: Request, image: UploadFile = File(...), x_ai_access_c
 
         source.load()
         result = processor.process(source)
+    except ProcessorNotReadyError as exc:
+        return JSONResponse(status_code=503, content={"error": str(exc)})
+    except ImageTooLargeError as exc:
+        return JSONResponse(status_code=413, content={"error": str(exc)})
+    except ProcessingTimeoutError as exc:
+        return JSONResponse(status_code=504, content={"error": str(exc)})
     except UnidentifiedImageError as exc:
         raise HTTPException(status_code=400, detail="画像を読み込めませんでした。JPEG / PNG / WebPをお試しください。") from exc
+    except MemoryError as exc:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "サーバーのメモリ不足でReal-ESRGAN処理に失敗しました。画像を縮小して再試行してください。"},
+        )
+    except NotImplementedError as exc:
+        return JSONResponse(status_code=501, content={"error": str(exc)})
     except Exception as exc:
+        message = str(exc).lower()
+        if "out of memory" in message:
+            return JSONResponse(
+                status_code=503,
+                content={"error": "サーバーのメモリ不足でReal-ESRGAN処理に失敗しました。画像を縮小して再試行してください。"},
+            )
         return JSONResponse(status_code=500, content={"error": f"Enhancement failed: {exc}"})
 
     output = BytesIO()

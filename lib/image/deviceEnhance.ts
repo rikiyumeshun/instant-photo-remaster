@@ -1,4 +1,4 @@
-import type { DeviceEnhanceQuality, EnhancementPreset } from "./types";
+import type { BrightIntensity, DeviceEnhanceQuality, EnhancementPreset } from "./types";
 import { applyEnhancementPreset } from "./enhance";
 import { getCanvasContext } from "./canvas";
 
@@ -6,6 +6,7 @@ type DeviceEnhanceOptions = {
   preset: EnhancementPreset;
   quality?: DeviceEnhanceQuality;
   scale?: number;
+  brightIntensity?: BrightIntensity;
 };
 
 type DeviceConfig = {
@@ -19,6 +20,7 @@ const CONFIGS: Record<EnhancementPreset, DeviceConfig> = {
   crisp: { denoise: 0.24, detail: 0.56, microContrast: 0.14 },
   soft: { denoise: 0.42, detail: 0.18, microContrast: 0.03 },
   retro: { denoise: 0.28, detail: 0.22, microContrast: 0.04 },
+  bright: { denoise: 0.26, detail: 0.62, microContrast: 0.16 },
 };
 
 const QUALITY_MULTIPLIERS: Record<DeviceEnhanceQuality, DeviceConfig> = {
@@ -40,7 +42,7 @@ export async function enhanceOnDevice(source: HTMLCanvasElement, options: Device
   const config = multiplyConfig(CONFIGS[options.preset], QUALITY_MULTIPLIERS[quality]);
   const requestedScale = options.scale ?? 2;
   const scale = Math.min(requestedScale, MAX_OUTPUT_EDGE[quality] / Math.max(source.width, source.height));
-  const toned = applyEnhancementPreset(source, options.preset);
+  const toned = applyEnhancementPreset(source, options.preset, { brightIntensity: options.brightIntensity });
   await yieldToBrowser();
 
   const denoised = edgeAwareDenoise(toned, config.denoise);

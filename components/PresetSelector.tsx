@@ -1,10 +1,11 @@
 "use client";
 
-import type { CropSettings, DeviceEnhanceQuality, EnhancementEngine, EnhancementPreset, OutputMode } from "@/lib/image/types";
-import { PRESET_LABELS } from "@/lib/image/types";
+import type { BrightIntensity, CropSettings, DeviceEnhanceQuality, EnhancementEngine, EnhancementPreset, OutputMode, PreprocessMode } from "@/lib/image/types";
+import { PRESET_LABELS, PRESET_ORDER } from "@/lib/image/types";
 
 type Props = {
   preset: EnhancementPreset;
+  brightIntensity: BrightIntensity;
   enhancementEngine: EnhancementEngine;
   deviceEnhanceQuality: DeviceEnhanceQuality;
   aiConsent: boolean;
@@ -12,9 +13,11 @@ type Props = {
   outputMode: OutputMode;
   cropSettings: CropSettings;
   upscale: boolean;
+  preprocessMode: PreprocessMode;
   errorMessage?: string | null;
   disabled?: boolean;
   onPresetChange: (preset: EnhancementPreset) => void;
+  onBrightIntensityChange: (intensity: BrightIntensity) => void;
   onEnhancementEngineChange: (engine: EnhancementEngine) => void;
   onDeviceEnhanceQualityChange: (quality: DeviceEnhanceQuality) => void;
   onAiConsentChange: (consent: boolean) => void;
@@ -29,6 +32,7 @@ type Props = {
 };
 
 const descriptions: Record<EnhancementPreset, string> = {
+  bright: "暗い写真を大きく明るくし、白背景を白く、肌を明るく、ほんのりピンクで血色感を足し、黒髪や目を締めてくっきり見せます。白い服や背景は少し白飛びする場合があります。",
   natural: "明るさ、色、シャープを軽く整えます。",
   crisp: "SNS向けに輪郭とコントラストを強めます。",
   soft: "淡い色と空気感を残して柔らかくします。",
@@ -43,8 +47,15 @@ const qualityOptions: Array<{ key: DeviceEnhanceQuality; label: string; badge: s
   { key: "max", label: "最高品質", badge: "画質優先", description: "少し時間をかけ、ていねいに拡大・ノイズ低減・シャープ補正します。" },
 ];
 
+const brightIntensityOptions: Array<{ key: BrightIntensity; label: string; badge: string; description: string }> = [
+  { key: "standard", label: "標準", badge: "安全", description: "白飛びと赤みを抑え、自然に明るく血色よくします。" },
+  { key: "strong", label: "強め", badge: "おすすめ", description: "明るさ・白さ・ピンク・黒締めのバランス型。通常はこれ。" },
+  { key: "max", label: "最大", badge: "強盛り", description: "かなり明るく白く盛ります。白い服や背景は飛びやすいです。" },
+];
+
 export function PresetSelector({
   preset,
+  brightIntensity,
   enhancementEngine,
   deviceEnhanceQuality,
   aiConsent,
@@ -52,9 +63,11 @@ export function PresetSelector({
   outputMode,
   cropSettings,
   upscale,
+  preprocessMode,
   errorMessage,
   disabled,
   onPresetChange,
+  onBrightIntensityChange,
   onEnhancementEngineChange,
   onDeviceEnhanceQualityChange,
   onAiConsentChange,
@@ -187,34 +200,68 @@ export function PresetSelector({
           ) : null}
         </div>
         <div className="mt-4 grid gap-3">
-          {(Object.keys(PRESET_LABELS) as EnhancementPreset[]).map((key) => (
+          {PRESET_ORDER.map((key) => (
             <button
               type="button"
               key={key}
               onClick={() => onPresetChange(key)}
-              className={`rounded-[8px] border p-4 text-left ${preset === key ? "border-ink bg-mist" : "border-zinc-200 bg-white"}`}
+              className={`rounded-[8px] border p-4 text-left ${preset === key ? "border-ink bg-mist" : "border-zinc-200 bg-white"} ${key === "bright" ? "ring-1 ring-amber-100" : ""}`}
             >
-              <span className="block text-base font-bold text-ink">{PRESET_LABELS[key]}</span>
+              <span className="block text-base font-bold text-ink">
+                {PRESET_LABELS[key]}
+                {key === "bright" ? <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-900">おすすめ</span> : null}
+              </span>
               <span className="mt-1 block text-sm leading-6 text-zinc-600">{descriptions[key]}</span>
             </button>
           ))}
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-2 rounded-[8px] bg-zinc-100 p-1">
-          <button type="button" onClick={() => onOutputModeChange("frame")} className={`min-h-12 rounded-[7px] text-sm font-bold ${outputMode === "frame" ? "bg-white shadow" : "text-zinc-600"}`}>
-            白枠込み
-          </button>
-          <button type="button" onClick={() => onOutputModeChange("inner")} className={`min-h-12 rounded-[7px] text-sm font-bold ${outputMode === "inner" ? "bg-white shadow" : "text-zinc-600"}`}>
-            写真部分のみ
-          </button>
-        </div>
-
-        {outputMode === "inner" ? (
-          <div className="mt-5 space-y-4">
-            <Range label="上余白" value={cropSettings.top} min={0.04} max={0.22} onChange={(top) => onCropSettingsChange({ ...cropSettings, top })} />
-            <Range label="左右余白" value={cropSettings.side} min={0.02} max={0.18} onChange={(side) => onCropSettingsChange({ ...cropSettings, side })} />
-            <Range label="下余白" value={cropSettings.bottom} min={0.12} max={0.35} onChange={(bottom) => onCropSettingsChange({ ...cropSettings, bottom })} />
+        {preset === "bright" ? (
+          <div className="mt-4 rounded-[8px] border border-rose-100 bg-rose-50 p-3">
+            <p className="text-sm font-bold text-ink">明るく盛るの強度</p>
+            <div className="mt-3 grid gap-2">
+              {brightIntensityOptions.map((option) => (
+                <button
+                  type="button"
+                  key={option.key}
+                  onClick={() => onBrightIntensityChange(option.key)}
+                  className={`rounded-[8px] border bg-white p-3 text-left ${brightIntensity === option.key ? "border-ink" : "border-zinc-200"}`}
+                >
+                  <span className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-bold text-ink">{option.label}</span>
+                    <span className="rounded-full bg-zinc-100 px-2 py-1 text-[11px] font-bold text-zinc-700">{option.badge}</span>
+                  </span>
+                  <span className="mt-1 block text-xs leading-5 text-zinc-600">{option.description}</span>
+                </button>
+              ))}
+            </div>
+            {brightIntensity === "max" ? (
+              <p className="mt-3 rounded-[8px] border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+                最大設定では白い服や背景が白飛びしやすくなります。ピンクは肌中心にかかり、白領域への染色は抑えています。
+              </p>
+            ) : null}
           </div>
+        ) : null}
+
+        {preprocessMode === "perspective" ? (
+          <>
+            <div className="mt-5 grid grid-cols-2 gap-2 rounded-[8px] bg-zinc-100 p-1">
+              <button type="button" onClick={() => onOutputModeChange("frame")} className={`min-h-12 rounded-[7px] text-sm font-bold ${outputMode === "frame" ? "bg-white shadow" : "text-zinc-600"}`}>
+                白枠込み
+              </button>
+              <button type="button" onClick={() => onOutputModeChange("inner")} className={`min-h-12 rounded-[7px] text-sm font-bold ${outputMode === "inner" ? "bg-white shadow" : "text-zinc-600"}`}>
+                写真部分のみ
+              </button>
+            </div>
+
+            {outputMode === "inner" ? (
+              <div className="mt-5 space-y-4">
+                <Range label="上余白" value={cropSettings.top} min={0.04} max={0.22} onChange={(top) => onCropSettingsChange({ ...cropSettings, top })} />
+                <Range label="左右余白" value={cropSettings.side} min={0.02} max={0.18} onChange={(side) => onCropSettingsChange({ ...cropSettings, side })} />
+                <Range label="下余白" value={cropSettings.bottom} min={0.12} max={0.35} onChange={(bottom) => onCropSettingsChange({ ...cropSettings, bottom })} />
+              </div>
+            ) : null}
+          </>
         ) : null}
 
         <label className="mt-5 flex min-h-12 items-center justify-between rounded-[8px] border border-zinc-200 px-4 py-3">
