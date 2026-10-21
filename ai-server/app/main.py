@@ -89,7 +89,7 @@ async def enhance(request: Request, image: UploadFile = File(...), x_ai_access_c
         return JSONResponse(status_code=400, content={"error": "対応している画像形式は JPEG / PNG / WebP です。"})
 
     try:
-        raw = await image.read()
+        raw = await image.read(MAX_UPLOAD_BYTES + 1)
         if len(raw) > MAX_UPLOAD_BYTES:
             return JSONResponse(status_code=413, content={"error": "画像が大きすぎます。10MB以下に縮小してからお試しください。"})
 
@@ -122,7 +122,7 @@ async def enhance(request: Request, image: UploadFile = File(...), x_ai_access_c
                 status_code=503,
                 content={"error": "サーバーのメモリ不足でReal-ESRGAN処理に失敗しました。画像を縮小して再試行してください。"},
             )
-        return JSONResponse(status_code=500, content={"error": f"Enhancement failed: {exc}"})
+        return JSONResponse(status_code=500, content={"error": "Image enhancement failed."})
 
     output = BytesIO()
     result.convert("RGB").save(output, format="JPEG", quality=92, optimize=True)
