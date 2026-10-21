@@ -1,0 +1,19 @@
+name: One-time Python API vulnerability audit
+on:
+  push:
+    branches:
+      - security/api-python-audit-20261022
+    paths:
+      - .github/workflows/security-api-audit-20261022.yml
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Audit locked API runtime dependencies
+        working-directory: ai-server
+        run: uv audit --frozen --no-dev
