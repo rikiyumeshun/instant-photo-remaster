@@ -22,7 +22,8 @@ jobs:
       - name: Upgrade supported server dependencies and freeze requirements
         working-directory: ai-server
         run: |
-          uv add 'fastapi>=0.115.12,<1' 'uvicorn[standard]>=0.34.2,<1' 'python-multipart>=0.0.28,<1' 'pillow>=13.0.0,<14'
+          uv add 'fastapi>=0.158.1,<1' 'starlette>=1.9.0,<2' 'uvicorn[standard]>=0.34.2,<1' 'python-multipart>=0.0.28,<1' 'pillow>=13.0.0,<14'
+          uv lock --upgrade
           uv export --frozen --no-dev --no-hashes --no-emit-project --format requirements-txt --output-file requirements.txt
       - name: Audit patched locked runtime packages
         working-directory: ai-server
