@@ -1,0 +1,42 @@
+name: Validate complete npm security remediation
+on:
+  push:
+    branches: [security/npm-complete-audit-20261022]
+    paths:
+      - .github/workflows/npm-complete-audit-20261022.yml
+permissions:
+  contents: write
+jobs:
+  patch-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Resolve safe compatible npm dependencies
+        run: |
+          npm audit fix --package-lock-only --ignore-scripts || true
+          npm update --package-lock-only --ignore-scripts
+      - name: Install frozen dependency tree
+        run: npm ci
+      - name: Audit complete dependency tree including dev dependencies
+        run: npm audit --audit-level=high
+      - name: Lint
+        continue-on-error: false
+        run: npm run lint
+      - name: Production build
+        run: npm run build
+      - name: Commit verified security fixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          if ! git diff --cached --quiet; then
+            git commit -m "fix(security): patch complete npm dependency tree"
+            git push origin HEAD:security/npm-complete-audit-20261022
+          fi
